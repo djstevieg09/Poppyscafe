@@ -56,8 +56,8 @@ export function rng(seed) {
 }
 
 const LEVEL_OVERRIDES = {
-  1: { tables: 3, customers: 6, maxGroup: 2, interval: 8.5 },
-  2: { tables: 3, customers: 7, maxGroup: 2, interval: 8 },
+  1: { tables: 3, customers: 6, maxGroup: 2, interval: 10 },
+  2: { tables: 3, customers: 7, maxGroup: 2, interval: 9.5 },
 };
 
 export function generateLevel(n) {
@@ -69,9 +69,11 @@ export function generateLevel(n) {
 
   const tables = o.tables ?? Math.min(6, 3 + Math.floor(inCafe / 3) + (cafeIndex > 0 ? 1 : 0));
   const maxGroup = o.maxGroup ?? (n < 4 ? 2 : n < 8 ? 3 : 4);
-  const customers = o.customers ?? Math.min(34, 7 + Math.floor(n * 0.45) + inCafe + tier * 4);
-  const interval = o.interval ?? Math.max(2.6, 8 - n * 0.06 - tier * 0.6);
-  const patience = Math.max(0.5, 1 - n * 0.003 - tier * 0.08);
+  const customers = o.customers ?? Math.min(34, 7 + Math.floor(n * 0.45) + Math.floor(inCafe * (n <= 20 ? 0.5 : 1)) + tier * 4);
+  // Gentle start: the first ~15 levels get extra patience and slower arrivals, then it ramps slowly.
+  const ease = n <= 15 ? (15 - n) / 14 : 0; // 1 at level 1 -> 0 at level 15
+  const interval = o.interval ?? Math.max(3.2, 9 - n * 0.05 - tier * 0.5) + ease * 2.5;
+  const patience = Math.max(0.55, 1.3 - n * 0.007 - tier * 0.1) * (1 + ease * 0.6);
 
   // Table layout: alternate 2 and 4 seaters; bigger tables appear as groups grow.
   const tableDefs = [];
@@ -94,7 +96,7 @@ export function generateLevel(n) {
 
   // Targets: roughly what a decent / great player earns per group.
   const perGroupGoal = 62 + Math.min(30, n * 0.4);
-  const goal = Math.round((customers * perGroupGoal) / 50) * 50;
+  const goal = Math.round((customers * perGroupGoal * (1 - ease * 0.25)) / 50) * 50;
   const expert = Math.round((goal * 1.45) / 50) * 50;
 
   return {

@@ -2,19 +2,25 @@
 import { generateLevel, restaurantFor, CUSTOMER_TYPES, LEVELS_PER_CAFE, RESTAURANTS } from './levels.js';
 import { Game } from './game.js';
 import { Store, packForLevel, PRICE_FALLBACK } from './store.js';
-import { sfx, unlockAudio, setMuted } from './audio.js';
+import { sfx, unlockAudio, setMusicOn, setSfxOn, playMusic, duckMusic } from './audio.js';
 import { drawPoppy, drawChef, drawFood, drawCustomer } from './art.js';
 import { COLORS } from './levels.js';
 
 // ---------- save ----------
 const SAVE_KEY = 'poppy-cafe-rush-v1';
 const save = {
-  data: { progress: 1, stars: {}, best: {}, coins: 0, upgrades: {}, purchases: {}, muted: false },
+  data: { progress: 1, stars: {}, best: {}, coins: 0, upgrades: {}, purchases: {}, music: true, sound: true },
   load() { try { const d = JSON.parse(localStorage.getItem(SAVE_KEY)); if (d) this.data = { ...this.data, ...d }; } catch {} },
   write() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.data)); } catch {} },
 };
 save.load();
-setMuted(save.data.muted);
+if (save.data.muted) { save.data.music = false; save.data.sound = false; delete save.data.muted; save.write(); }
+setMusicOn(save.data.music !== false);
+setSfxOn(save.data.sound !== false);
+const musicLabel = () => save.data.music !== false ? '🎵 Music: On' : '🎵 Music: Off';
+const soundLabel = () => save.data.sound !== false ? '🔊 Sound: On' : '🔇 Sound: Off';
+function toggleMusic() { save.data.music = save.data.music === false; setMusicOn(save.data.music); save.write(); }
+function toggleSound() { save.data.sound = save.data.sound === false; setSfxOn(save.data.sound); save.write(); }
 const store = new Store(save);
 store.init();
 
@@ -32,6 +38,7 @@ const screens = ['title', 'map', 'intro', 'play', 'results', 'shop'];
 function show(name) {
   for (const s of screens) $(`#${s}`).classList.toggle('active', s === name);
   current = name;
+  playMusic(name === 'play' ? 'level' : 'menu');
   if (name !== 'play') { game = null; }
 }
 let current = 'title';
@@ -59,11 +66,11 @@ document.addEventListener('pointerdown', unlockAudio, { once: false });
 
 // ---------- title ----------
 $('#btn-play').onclick = () => { sfx.tap(); openMap(); };
-$('#btn-sound').onclick = () => {
-  save.data.muted = !save.data.muted; setMuted(save.data.muted); save.write();
-  $('#btn-sound').textContent = save.data.muted ? '🔇 Sound off' : '🔊 Sound on';
-};
-$('#btn-sound').textContent = save.data.muted ? '🔇 Sound off' : '🔊 Sound on';
+$('#btn-music').onclick = () => { unlockAudio(); toggleMusic(); $('#btn-music').textContent = musicLabel(); };
+$('#btn-sound').onclick = () => { unlockAudio(); toggleSound(); $('#btn-sound').textContent = soundLabel(); sfx.tap(); };
+$('#btn-music').textContent = musicLabel();
+$('#btn-sound').textContent = soundLabel();
+playMusic('menu'); // starts on the first tap
 if (store.isTestMode) {
   $('#btn-dev').hidden = false;
   $('#btn-dev').onclick = () => {
@@ -226,6 +233,7 @@ function startLevel(n) {
   show('play');
   paused = false;
   game = new Game(L, save.data.upgrades, {
+    tutorial: n === 1 && !save.data.stars[1],
     onEnd: (r) => setTimeout(() => results(n, r), 500),
     onPause: () => pause(),
   });
@@ -237,11 +245,13 @@ function pause() {
     <button class="big" id="p-resume">Resume</button>
     <button class="big alt" id="p-restart">Restart level</button>
     <button class="big alt" id="p-quit">Quit to map</button>
-    <button class="link" id="p-sound">${save.data.muted ? '🔇 Sound off' : '🔊 Sound on'}</button>`);
-  m.querySelector('#p-resume').onclick = () => { closeModal(); paused = false; };
-  m.querySelector('#p-restart').onclick = () => { closeModal(); startLevel(game.level.n); };
-  m.querySelector('#p-quit').onclick = () => { closeModal(); paused = false; openMap(); };
-  m.querySelector('#p-sound').onclick = (e) => { save.data.muted = !save.data.muted; setMuted(save.data.muted); save.write(); e.target.textContent = save.data.muted ? '🔇 Sound off' : '🔊 Sound on'; };
+    <div class="row"><button class="link" id="p-music">${musicLabel()}</button><button class="link" id="p-sound">${soundLabel()}</button></div>`);
+  duckMusic(true);
+  m.querySelector('#p-resume').onclick = () => { closeModal(); paused = false; duckMusic(false); };
+  m.querySelector('#p-restart').onclick = () => { closeModal(); duckMusic(false); startLevel(game.level.n); };
+  m.querySelector('#p-quit').onclick = () => { closeModal(); paused = false; duckMusic(false); openMap(); };
+  m.querySelector('#p-music').onclick = (e) => { toggleMusic(); duckMusic(true); e.target.textContent = musicLabel(); };
+  m.querySelector('#p-sound').onclick = (e) => { toggleSound(); e.target.textContent = soundLabel(); };
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden && game && !paused && !game.ended) pause(); });
 
@@ -275,11 +285,16 @@ function results(n, r) {
   }
   save.data.best[n] = Math.max(save.data.best[n] || 0, r.score);
   save.write();
-  passed ? sfx.win() : sfx.lose();
   show('results'); coinsUI();
+  duckMusic(true); setTimeout(() => duckMusic(false), 2200);
+  passed ? sfx.win() : sfx.lose();
+  for (let i = 0; i < stars; i++) setTimeout(() => sfx.star(i), 700 + i * 220);
   $('#res-title').textContent = stars === 3 ? 'Expert Service!' : passed ? 'Shift complete!' : 'So close!';
   $('#res-stars').innerHTML = [1, 2, 3].map(i => `<span class="${i <= stars ? 'on' : ''}" style="animation-delay:${i * 0.15}s">★</span>`).join('');
-  $('#res-score').textContent = r.score;
+  // count the score up
+  const t0 = performance.now();
+  const countUp = (now) => { const k = Math.min(1, (now - t0) / 900); $('#res-score').textContent = Math.round(r.score * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(countUp); };
+  requestAnimationFrame(countUp);
   $('#res-goal').textContent = `Goal ${r.goal} · Expert ${r.expert}`;
   $('#res-stats').innerHTML = `<div><b>${r.served}</b>happy guests</div><div><b>${r.lost}</b>walked out</div><div><b>x${r.bestChain}</b>best chain</div><div><b>${r.matches}</b>colour matches</div>`;
   $('#res-coins').textContent = `+${earned} coins`;
