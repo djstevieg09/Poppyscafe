@@ -105,6 +105,28 @@ button { font-family: inherit; cursor: pointer; }
 .perks { text-align: left; display: inline-block; margin: 8px auto; padding-left: 22px; font-size: 16px; font-weight: 500; }
 .note { font-size: 13px !important; color: #868e96; }
 
+/* motion */
+.screen.active { animation: screenIn .35s cubic-bezier(.2,.9,.3,1.2) both; }
+@keyframes screenIn { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+#play.screen.active { animation: fadeIn .3s both; }
+@keyframes fadeIn { from { opacity: 0; } }
+.panel { animation: pop .45s cubic-bezier(.2,1.4,.4,1) both; }
+#title h1 { animation: logoBob 2.8s ease-in-out infinite; display: inline-block; }
+@keyframes logoBob { 50% { transform: translateY(-6px) rotate(-1.5deg); } }
+#btn-play, #btn-intro-start, #btn-res-next { animation: breathe 1.6s ease-in-out infinite; }
+@keyframes breathe { 50% { transform: scale(1.04); } }
+.big:active, .lvl:active, .small:active { animation: none; }
+.cafe { animation: rise .4s both; }
+.cafe:nth-child(2) { animation-delay: .05s; } .cafe:nth-child(3) { animation-delay: .1s; } .cafe:nth-child(4) { animation-delay: .15s; }
+@keyframes rise { from { opacity: 0; transform: translateY(18px); } }
+.lvl { transition: transform .12s; }
+.lvl:hover { transform: translateY(-3px) rotate(-2deg); }
+.up { animation: rise .35s both; }
+#title::before, #title::after { content: ""; position: absolute; width: 140px; height: 140px; border-radius: 50%; background: rgba(255,255,255,.18); animation: drift 9s ease-in-out infinite; pointer-events: none; }
+#title::before { top: 8%; left: -30px; } #title::after { bottom: 10%; right: -40px; width: 200px; height: 200px; animation-delay: -4s; }
+@keyframes drift { 50% { transform: translate(30px, -20px) scale(1.1); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
 #toast { position: fixed; left: 50%; bottom: 40px; transform: translate(-50%, 30px); background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 16px; font-weight: 600; opacity: 0; transition: .25s; z-index: 20; pointer-events: none; max-width: 90vw; text-align: center; }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 </style>
@@ -118,7 +140,7 @@ button { font-family: inherit; cursor: pointer; }
     <div class="tag">Seat 'em, serve 'em, keep 'em smiling!</div>
   </div>
   <button class="big" id="btn-play">Play</button>
-  <button class="link" id="btn-sound">🔊 Sound on</button>
+  <div class="row"><button class="link" id="btn-music">🎵 Music: On</button><button class="link" id="btn-sound">🔊 Sound: On</button></div>
   <button class="link" id="btn-dev" hidden>Test mode: open levels 1–120</button>
 </div>
 
