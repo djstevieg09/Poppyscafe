@@ -75,6 +75,44 @@ export function drawBackground(ctx, cafe) {
   ctx.font = '700 16px Fredoka, sans-serif'; ctx.fillText('PLEASE WAIT TO BE SEATED', 34, 1246);
   // door
   rr(ctx, -20, 1110, 34, 150, 8); blob(ctx, '#8b5e3c');
+  // soft light from the window and a gentle vignette
+  const g1 = ctx.createRadialGradient(360, 300, 40, 360, 300, 520);
+  g1.addColorStop(0, 'rgba(255,255,230,0.22)'); g1.addColorStop(1, 'rgba(255,255,230,0)');
+  ctx.fillStyle = g1; ctx.fillRect(0, 96, W, H);
+  const g2 = ctx.createRadialGradient(360, 700, 380, 360, 700, 900);
+  g2.addColorStop(0, 'rgba(60,30,10,0)'); g2.addColorStop(1, 'rgba(60,30,10,0.22)');
+  ctx.fillStyle = g2; ctx.fillRect(0, 96, W, H);
+}
+
+// Fairy lights strung along the wall (animated twinkle)
+export function drawStringLights(ctx, t, cafe) {
+  ctx.strokeStyle = INK; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, 110);
+  for (let x = 0; x <= 720; x += 120) ctx.quadraticCurveTo(x + 60, 140, x + 120, 110);
+  ctx.stroke();
+  const cols = ['#ffd43b', '#ff6b9a', '#69db7c', '#74c0fc', '#ff922b'];
+  for (let i = 0; i < 24; i++) {
+    const x = 15 + i * 30, seg = (x % 120) / 120, y = 110 + Math.sin(seg * Math.PI) * 22 + 4;
+    const on = 0.55 + 0.45 * Math.sin(t * 3 + i * 1.7);
+    ctx.globalAlpha = 0.35 * on; ctx.fillStyle = cols[i % 5];
+    ctx.beginPath(); ctx.arc(x, y + 6, 11, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.ellipse(x, y + 6, 5, 7, 0, 0, 7); blob(ctx, cols[i % 5], INK, 1.5);
+  }
+}
+
+// Clouds drifting past the window
+export function drawWindowSky(ctx, t, cafe) {
+  ctx.save(); rr(ctx, 270, 112, 180, 70, 14); ctx.clip();
+  ctx.fillStyle = cafe.sky; ctx.fillRect(270, 112, 180, 70);
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  for (let i = 0; i < 3; i++) {
+    const x = 250 + ((t * (8 + i * 4) + i * 90) % 240), y = 132 + i * 16;
+    ctx.beginPath(); ctx.arc(x, y, 9, 0, 7); ctx.arc(x + 12, y - 4, 11, 0, 7); ctx.arc(x + 24, y, 8, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+  rr(ctx, 270, 112, 180, 70, 14); ctx.lineWidth = 3.5; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(360, 112); ctx.lineTo(360, 182); ctx.stroke();
 }
 
 function plant(ctx, x, y) {
@@ -86,13 +124,23 @@ function plant(ctx, x, y) {
 }
 
 // ---------- Heroine ----------
-export function drawPoppy(ctx, x, y, t, moving, facing, hands, busy) {
+export function drawPoppy(ctx, x, y, t, moving, facing, hands, busy, squash = 0) {
   const bob = moving ? Math.sin(t * 18) * 3 : Math.sin(t * 3) * 1.2;
   const lean = moving ? facing * 0.06 : 0;
   shadow(ctx, x, y + 2, 34);
+  if (moving) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    for (let i = 0; i < 3; i++) {
+      const ly = y - 30 - i * 26, ph = (t * 6 + i * 0.33) % 1, len = 18 + ph * 16;
+      ctx.globalAlpha = 1 - ph;
+      ctx.beginPath(); ctx.moveTo(x - facing * (34 + ph * 10), ly); ctx.lineTo(x - facing * (34 + ph * 10 + len), ly); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(lean);
+  if (squash) ctx.scale(1 + squash * 0.14, 1 - squash * 0.14);
   // skates
   for (const sx of [-12, 12]) {
     rr(ctx, sx - 11, -16, 22, 14, 6); blob(ctx, '#ff6b9a', INK, 3);
@@ -109,10 +157,11 @@ export function drawPoppy(ctx, x, y, t, moving, facing, hands, busy) {
   blob(ctx, '#ffffff', INK, 2.5);
   ctx.fillStyle = '#ff6b9a'; ctx.beginPath(); ctx.arc(0, -56, 4, 0, 7); ctx.fill();
   // arms
-  const armUp = (h) => h ? -78 : -58;
+  const sw = moving ? Math.sin(t * 18) * 7 : 0;
+  const armUp = (h, side) => h ? -78 : -58 + sw * side;
   ctx.strokeStyle = '#ffd3b0'; ctx.lineWidth = 8; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-16, -78); ctx.lineTo(-30, armUp(hands[0])); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(16, -78); ctx.lineTo(30, armUp(hands[1])); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-16, -78); ctx.lineTo(-30, armUp(hands[0], 1)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(16, -78); ctx.lineTo(30, armUp(hands[1], -1)); ctx.stroke();
   // head
   const hy = -108;
   // ponytail
@@ -129,15 +178,19 @@ export function drawPoppy(ctx, x, y, t, moving, facing, hands, busy) {
   ctx.fillStyle = '#fff'; [[-12, -20], [2, -23], [14, -19]].forEach(([a, b]) => { ctx.beginPath(); ctx.arc(a, hy + b, 2.4, 0, 7); ctx.fill(); });
   // face
   const ex = facing * 3;
-  ellipse(ctx, -9 + ex, hy + 2, 4.5, 6.5, INK, null); ellipse(ctx, 9 + ex, hy + 2, 4.5, 6.5, INK, null);
-  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-7.5 + ex, hy - 1, 1.8, 0, 7); ctx.arc(10.5 + ex, hy - 1, 1.8, 0, 7); ctx.fill();
+  if ((t % 3.7) < 0.12) { ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-13 + ex, hy + 2); ctx.lineTo(-5 + ex, hy + 2); ctx.moveTo(5 + ex, hy + 2); ctx.lineTo(13 + ex, hy + 2); ctx.stroke(); }
+  else {
+    ellipse(ctx, -9 + ex, hy + 2, 4.5, 6.5, INK, null); ellipse(ctx, 9 + ex, hy + 2, 4.5, 6.5, INK, null);
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-7.5 + ex, hy - 1, 1.8, 0, 7); ctx.arc(10.5 + ex, hy - 1, 1.8, 0, 7); ctx.fill();
+  }
   ctx.fillStyle = 'rgba(255,107,154,0.45)'; ctx.beginPath(); ctx.ellipse(-16, hy + 10, 6, 3.5, 0, 0, 7); ctx.ellipse(16, hy + 10, 6, 3.5, 0, 0, 7); ctx.fill();
   ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.beginPath();
   if (busy) { ctx.arc(ex, hy + 13, 4, 0, Math.PI * 2); } else { ctx.arc(ex, hy + 10, 7, 0.15 * Math.PI, 0.85 * Math.PI); }
   ctx.stroke();
   // held items
-  if (hands[0]) drawHeld(ctx, -32, -84, hands[0]);
-  if (hands[1]) drawHeld(ctx, 32, -84, hands[1]);
+  const wob = moving ? Math.sin(t * 18) * 2 : 0;
+  if (hands[0]) drawHeld(ctx, -32, -84 + wob, hands[0]);
+  if (hands[1]) drawHeld(ctx, 32, -84 - wob, hands[1]);
   ctx.restore();
 }
 
@@ -158,6 +211,9 @@ export function drawCustomer(ctx, x, y, color, type, mood, t, idx, opts = {}) {
   if (!opts.seated) shadow(ctx, 0, 2, 22);
   ctx.translate(0, bounce);
   if (opts.angry) ctx.translate(Math.sin(t * 40) * 2, 0);
+  if (opts.joy > 0) { ctx.translate(0, -Math.sin(opts.joy * Math.PI) * 18); }
+  if (!opts.hop) { const br = Math.sin(t * 3 + idx) * 0.025; ctx.scale(1 - br * 0.5, 1 + br); }
+  if (opts.selected) ctx.translate(0, -Math.abs(Math.sin(t * 8)) * 6);
   // body
   if (!opts.seated) { ctx.fillStyle = '#4a4e69'; ctx.fillRect(-12, -20, 9, 20); ctx.fillRect(3, -20, 9, 20); }
   ctx.beginPath(); ctx.ellipse(0, -36, 22, 24, 0, 0, Math.PI * 2); blob(ctx, color.fill);
@@ -171,7 +227,7 @@ export function drawCustomer(ctx, x, y, color, type, mood, t, idx, opts = {}) {
     ctx.fillStyle = '#fff'; ctx.fillRect(-1, -46, 2, 18);
   }
   // head
-  const hy = -74;
+  const hy = -74 + (opts.eating ? Math.sin(t * 11 + idx) * 2.5 : 0);
   circle(ctx, 0, hy, 21, skin);
   // hair & accessories
   if (type === 'granny') {
@@ -191,7 +247,12 @@ export function drawCustomer(ctx, x, y, color, type, mood, t, idx, opts = {}) {
   // face
   ctx.fillStyle = INK;
   const eyeY = hy + 2;
-  ctx.beginPath(); ctx.arc(-7, eyeY, 3, 0, 7); ctx.arc(7, eyeY, 3, 0, 7); ctx.fill();
+  const blink = ((t * 0.8 + idx * 0.37) % 3.2) < 0.13;
+  const look = opts.seated ? 0 : Math.sin(t * 0.9 + idx * 2) * 2;
+  if (blink) { ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(-10, eyeY); ctx.lineTo(-4, eyeY); ctx.moveTo(4, eyeY); ctx.lineTo(10, eyeY); ctx.stroke(); }
+  else { ctx.beginPath(); ctx.arc(-7 + look, eyeY, 3.2, 0, 7); ctx.arc(7 + look, eyeY, 3.2, 0, 7); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-6 + look, eyeY - 1.2, 1.1, 0, 7); ctx.arc(8 + look, eyeY - 1.2, 1.1, 0, 7); ctx.fill(); }
+  ctx.fillStyle = 'rgba(255,120,150,0.35)'; ctx.beginPath(); ctx.ellipse(-13, hy + 9, 4.5, 2.6, 0, 0, 7); ctx.ellipse(13, hy + 9, 4.5, 2.6, 0, 0, 7); ctx.fill();
   if (type === 'granny' || type === 'bookworm') {
     ctx.strokeStyle = INK; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(-7, eyeY, 6, 0, 7); ctx.moveTo(13, eyeY); ctx.arc(7, eyeY, 6, 0, 7); ctx.moveTo(-1, eyeY); ctx.lineTo(1, eyeY); ctx.stroke();
@@ -204,7 +265,26 @@ export function drawCustomer(ctx, x, y, color, type, mood, t, idx, opts = {}) {
     ctx.moveTo(-12, eyeY - 9); ctx.lineTo(-3, eyeY - 5); ctx.moveTo(12, eyeY - 9); ctx.lineTo(3, eyeY - 5);
   }
   ctx.stroke();
-  if (mood <= 0.3) { ctx.fillStyle = 'rgba(255,80,80,0.35)'; ctx.beginPath(); ctx.arc(0, hy, 21, 0, 7); ctx.fill(); }
+  if (mood <= 0.3) {
+    ctx.fillStyle = 'rgba(255,80,80,0.35)'; ctx.beginPath(); ctx.arc(0, hy, 21, 0, 7); ctx.fill();
+    // steam puffs
+    for (let i = 0; i < 2; i++) {
+      const ph = (t * 1.6 + i * 0.5 + idx * 0.13) % 1;
+      ctx.globalAlpha = 0.8 * (1 - ph); ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc((i ? 14 : -14) + (i ? 6 : -6) * ph, hy - 22 - ph * 26, 4 + ph * 6, 0, 7); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  } else if (mood <= 0.5) {
+    // sweat drop
+    const dy = ((t * 0.9 + idx * 0.3) % 1) * 8;
+    ctx.beginPath(); ctx.moveTo(19, hy - 10 + dy); ctx.quadraticCurveTo(25, hy - 2 + dy, 19, hy + 1 + dy); ctx.quadraticCurveTo(13, hy - 2 + dy, 19, hy - 10 + dy);
+    blob(ctx, '#74c0fc', INK, 1.5);
+  }
+  if (opts.eating) {
+    const fy = Math.sin(t * 11 + idx) * 6;
+    ctx.strokeStyle = '#adb5bd'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(14, hy + 26 + fy); ctx.lineTo(8, hy + 12 + fy); ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -237,7 +317,7 @@ export function drawTableTop(ctx, table, cafe, highlight) {
 const DISHES = ['burger', 'pancakes', 'salad', 'pasta', 'cake'];
 export function dishFor(id) { return DISHES[id % DISHES.length]; }
 
-export function drawFood(ctx, x, y, dish, s = 1, tableNo) {
+export function drawFood(ctx, x, y, dish, s = 1, tableNo, t = null) {
   ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
   ellipse(ctx, 0, 6, 26, 10, '#ffffff', INK, 2.5);
   switch (dish) {
@@ -256,6 +336,16 @@ export function drawFood(ctx, x, y, dish, s = 1, tableNo) {
     case 'cake':
       ctx.beginPath(); ctx.moveTo(-14, 2); ctx.lineTo(14, 2); ctx.lineTo(10, -16); ctx.lineTo(-10, -16); ctx.closePath(); blob(ctx, '#ffc9de', INK, 2);
       circle(ctx, 0, -20, 4, '#e03131', INK, 1.5); break;
+  }
+  if (t !== null) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    for (let i = 0; i < 3; i++) {
+      const ph = (t * 0.9 + i * 0.33) % 1;
+      ctx.globalAlpha = Math.sin(ph * Math.PI) * 0.9;
+      ctx.beginPath(); ctx.moveTo(-10 + i * 10, -18 - ph * 24);
+      ctx.quadraticCurveTo(-4 + i * 10, -26 - ph * 24, -10 + i * 10, -34 - ph * 24); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
   }
   ctx.restore();
   if (tableNo) numberBadge(ctx, x + 20 * s, y - 14 * s, tableNo, 0.8 * s);

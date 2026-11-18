@@ -291,7 +291,10 @@ function results(n, r) {
   for (let i = 0; i < stars; i++) setTimeout(() => sfx.star(i), 700 + i * 220);
   $('#res-title').textContent = stars === 3 ? 'Expert Service!' : passed ? 'Shift complete!' : 'So close!';
   $('#res-stars').innerHTML = [1, 2, 3].map(i => `<span class="${i <= stars ? 'on' : ''}" style="animation-delay:${i * 0.15}s">★</span>`).join('');
-  $('#res-score').textContent = r.score;
+  // count the score up
+  const t0 = performance.now();
+  const countUp = (now) => { const k = Math.min(1, (now - t0) / 900); $('#res-score').textContent = Math.round(r.score * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(countUp); };
+  requestAnimationFrame(countUp);
   $('#res-goal').textContent = `Goal ${r.goal} · Expert ${r.expert}`;
   $('#res-stats').innerHTML = `<div><b>${r.served}</b>happy guests</div><div><b>${r.lost}</b>walked out</div><div><b>x${r.bestChain}</b>best chain</div><div><b>${r.matches}</b>colour matches</div>`;
   $('#res-coins').textContent = `+${earned} coins`;

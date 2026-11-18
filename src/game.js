@@ -34,6 +34,11 @@ export class Game {
     this.matches = 0;
     this.floaters = [];
     this.particles = [];
+    this.combos = [];      // big animated "2x COMBO!" popups
+    this.coinFx = [];      // coins flying to the score bar
+    this.shownScore = 0;   // score counter rolls up smoothly
+    this.comboPulse = 0; this.comboBreak = 0; this.barPulse = 0; this.shake = 0;
+    this.bannerT = 0;
     this.tables = level.tables.map((t, i) => ({ ...t, no: i + 1, colorObj: COLOR[t.color], group: null, dirty: false, chairs: A.chairPositions(t), pulse: 0 }));
     this.pending = level.groups.map(g => ({ ...g }));
     this.groups = [];
@@ -66,7 +71,8 @@ export class Game {
   }
 
   // ---------------- helpers ----------------
-  decay(g) { return 0.1 / (CUSTOMER_TYPES[g.type].patience * this.level.patience); }
+  // hearts lost per second (5 hearts = full). Tuned so a good player can keep everyone.
+  decay(g) { return 0.075 / (CUSTOMER_TYPES[g.type].patience * this.level.patience); }
 
   float(x, y, text, color = '#fff', size = 30) {
     this.floaters.push({ x, y, text, color, size, life: 1.1 });
@@ -82,12 +88,15 @@ export class Game {
   addScore(pts, x, y, kind, label) {
     let bonus = 0;
     if (kind) {
-      if (kind === this.lastKind) this.chain++; else this.chain = 1;
+      if (kind === this.lastKind) this.chain++;
+      else { if (this.chain > 1) this.comboBreak = 1; this.chain = 1; }
       this.lastKind = kind;
       this.bestChain = Math.max(this.bestChain, this.chain);
+      this.comboPulse = 1;
       if (this.chain > 1) {
         bonus = 10 * (this.chain - 1);
-        this.float(x, y - 44, `Chain x${this.chain}!`, '#ffd43b', 30);
+        this.combos.push({ x: Math.max(110, Math.min(610, x)), y: Math.max(200, y - 70), n: this.chain, life: 1.4, bonus });
+        if (this.chain >= 4) this.shake = 0.35;
         sfx.chain(this.chain);
       }
     }
@@ -217,6 +226,9 @@ export class Game {
         const tip = Math.round(g.hearts * 3 * g.size * type.tip);
         this.addScore(bill + tip, t.x, t.y - 70, 'check', `+${bill}  tip +${tip}`);
         sfx.cash(tip); this.burst(t.x, t.y - 40, '#ffd43b', tip >= 20 ? 26 : 14);
+        g.joy = 1;
+        const nCoins = Math.min(10, 4 + Math.floor(tip / 8));
+        for (let i = 0; i < nCoins; i++) this.coinFx.push({ x0: t.x + (Math.random() - 0.5) * 50, y0: t.y - 50, t: -i * 0.06, dur: 0.65 + Math.random() * 0.15 });
         this.served++;
         this.leave(g, false);
         t.dirty = true;
@@ -233,7 +245,8 @@ export class Game {
         const hi = p.hands.findIndex(h => h && h.kind === 'food' && h.g === g);
         if (hi >= 0) {
           p.hands[hi] = null;
-          g.state = 'eating'; g.served = true;
+          g.state = 'eating'; g.served = true; g.joy = 1;
+          this.burst(t.x, t.y - 70, '#ff6b9a', 8);
           g.timer = (4.2 + Math.random() * 2.2) * CUSTOMER_TYPES[g.type].eat;
           g.hearts = Math.min(5, g.hearts + 1);
           this.addScore(15, t.x, t.y - 70, 'serve');
@@ -246,6 +259,7 @@ export class Game {
         if (h >= 0) {
           p.hands[h] = { kind: 'dishes' };
           t.dirty = false;
+          this.burst(t.x, t.y - 10, '#ffffff', 12);
           this.addScore(10, t.x, t.y - 70, 'clear');
           sfx.clear();
           return true;
@@ -335,7 +349,7 @@ export class Game {
       const d = this.tut ? 0 : this.decay(g);
       if (g.hearts < 1.5 && !g.warned && g.state !== 'leaving') { g.warned = true; sfx.warn(); }
       switch (g.state) {
-        case 'queue': g.hearts -= d * this.queueDecayMult * dt; break;
+        case 'queue': g.hearts -= d * 0.6 * this.queueDecayMult * dt; break;
         case 'menu': g.timer -= dt; if (g.timer <= 0) { g.state = 'order'; } break;
         case 'order': g.hearts -= d * this.tableDecayMult * dt; break;
         case 'waitfood': g.hearts -= d * 0.75 * this.tableDecayMult * dt; break;
@@ -379,7 +393,7 @@ export class Game {
           p.x = sp.x; p.y = sp.y; p.moving = false;
           const ok = this.perform(this.cur);
           if (!ok) sfx.nope();
-          this.cur = null; p.pause = 0.12; p.busyT = 0.25;
+          this.cur = null; p.pause = 0.12; p.busyT = 0.25; p.squash = 1;
         } else {
           p.x += dx / dist * step; p.y += dy / dist * step; p.moving = true;
           if (Math.abs(dx) > 4) p.facing = dx > 0 ? 1 : -1;
@@ -387,6 +401,8 @@ export class Game {
       } else p.moving = false;
     }
     p.busyT = Math.max(0, p.busyT - dt);
+    p.squash = Math.max(0, (p.squash || 0) - dt * 5);
+    for (const g of this.groups) if (g.joy) g.joy = Math.max(0, g.joy - dt * 2.2);
 
     this.fx(dt);
 
@@ -399,6 +415,19 @@ export class Game {
   }
 
   fx(dt) {
+    this.bannerT += dt;
+    this.shownScore += (this.score - this.shownScore) * Math.min(1, dt * 8);
+    if (Math.abs(this.score - this.shownScore) < 0.5) this.shownScore = this.score;
+    this.comboPulse = Math.max(0, this.comboPulse - dt * 3);
+    this.comboBreak = Math.max(0, this.comboBreak - dt * 2);
+    this.barPulse = Math.max(0, this.barPulse - dt * 4);
+    this.shake = Math.max(0, this.shake - dt);
+    for (const c of this.combos) c.life -= dt;
+    this.combos = this.combos.filter(c => c.life > 0);
+    for (const c of this.coinFx) c.t += dt;
+    const before = this.coinFx.length;
+    this.coinFx = this.coinFx.filter(c => c.t < c.dur);
+    if (this.coinFx.length < before) this.barPulse = 1;
     for (const f of this.floaters) { f.life -= dt; f.y -= 50 * dt; }
     this.floaters = this.floaters.filter(f => f.life > 0);
     for (const q of this.particles) { q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 600 * dt; }
@@ -553,7 +582,11 @@ export class Game {
 
   // ---------------- render ----------------
   render(ctx, t) {
+    ctx.save();
+    if (this.shake > 0) ctx.translate((Math.random() - 0.5) * 14 * this.shake, (Math.random() - 0.5) * 14 * this.shake);
     ctx.drawImage(this.bg, 0, 0);
+    A.drawWindowSky(ctx, t, this.cafe);
+    A.drawStringLights(ctx, t, this.cafe);
     const seatable = this.drag?.moved || this.selected ? (this.drag?.g || this.selected) : null;
 
     // kitchen
@@ -562,7 +595,7 @@ export class Game {
     A.drawTicketWheel(ctx, TICKET.x, TICKET.y, this.notepad.length, t, this.notepad.length > 0);
     for (let i = 0; i < SLOT_X.length; i++) {
       const s = this.slots[i];
-      if (s) A.drawFood(ctx, SLOT_X[i], SLOT_Y - (s.pop ? s.pop * 20 : 0) + Math.sin(t * 4 + i) * 1.5, s.dish, 1, s.g.table ? s.g.table.no : 0);
+      if (s) A.drawFood(ctx, SLOT_X[i], SLOT_Y - (s.pop ? s.pop * 20 : 0) + Math.sin(t * 4 + i) * 1.5, s.dish, 1, s.g.table ? s.g.table.no : 0, t + i * 0.3);
     }
     // cooking progress pips
     let shown = 0;
@@ -592,12 +625,13 @@ export class Game {
           y: m.y + (seated ? 2 : 0),
           f: () => A.drawCustomer(ctx, m.x, m.y + (seated ? -8 : 0), COLOR[g.color], g.type, g.hearts / 5, t, m.idx, {
             seated, scale: seated ? 0.86 : 0.9, hop: m.walking, angry: g.angry, reading: g.state === 'menu',
+            joy: g.joy || 0, eating: g.state === 'eating' && seated, selected: this.selected === g && !seated,
           }),
         });
       });
     }
     const p = this.poppy;
-    items.push({ y: p.y, f: () => A.drawPoppy(ctx, p.x, p.y, t, p.moving, p.facing, p.hands, p.busyT > 0) });
+    items.push({ y: p.y, f: () => A.drawPoppy(ctx, p.x, p.y, t, p.moving, p.facing, p.hands, p.busyT > 0, p.squash || 0) });
     items.push({ y: COFFEE.y + 30, f: () => A.drawCoffee(ctx, COFFEE.x, COFFEE.y, this.coffeeCd <= 0, t, this.coffeeLvl) });
     items.sort((a, b) => a.y - b.y);
     for (const it of items) it.f();
@@ -647,8 +681,12 @@ export class Game {
       ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
     }
     ctx.globalAlpha = 1;
+    this.drawCombos(ctx, t);
+    ctx.restore();
 
     this.drawHud(ctx, t);
+    this.drawCoins(ctx, t);
+    this.drawBanner(ctx, t);
     if (this.tut) this.drawTutorial(ctx, t);
   }
 
@@ -679,6 +717,90 @@ export class Game {
     if (tb.dirty) A.drawDishes(ctx, tb.x, tb.y - 2, 1.05);
   }
 
+  barTarget() {
+    const max = this.level.expert * 1.1;
+    return { x: 230 + 360 * Math.min(1, this.score / max), y: 43 };
+  }
+
+  comboColor(n) {
+    return ['#ffffff', '#ffffff', '#ffd43b', '#ff922b', '#ff6b9a', '#cc5de8', '#4dabf7'][Math.min(n, 6)];
+  }
+
+  drawCombos(ctx, t) {
+    for (const c of this.combos) {
+      const age = 1.4 - c.life;
+      const k = Math.min(1, age / 0.28);
+      const back = 1 + 2.4 * Math.pow(k - 1, 3) + 1.4 * Math.pow(k - 1, 2); // ease-out-back
+      const s = (0.9 + Math.min(c.n, 6) * 0.06) * back;
+      const a = c.life < 0.35 ? c.life / 0.35 : 1;
+      const y = c.y - age * 30;
+      const col = this.comboColor(c.n);
+      ctx.save(); ctx.globalAlpha = a; ctx.translate(c.x, y); ctx.scale(s, s);
+      // spinning starburst
+      ctx.save(); ctx.rotate(age * 2);
+      ctx.beginPath();
+      for (let i = 0; i < 24; i++) { const r = i % 2 ? 46 : 74; const an = i / 24 * Math.PI * 2; ctx.lineTo(Math.cos(an) * r, Math.sin(an) * r); }
+      ctx.closePath(); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 5; ctx.strokeStyle = A.INK; ctx.stroke();
+      ctx.restore();
+      ctx.rotate(Math.sin(age * 8) * 0.06);
+      ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+      ctx.font = '700 60px Fredoka, sans-serif';
+      ctx.lineWidth = 10; ctx.strokeStyle = A.INK; ctx.strokeText(`${c.n}x`, 0, 16);
+      ctx.fillStyle = '#fff'; ctx.fillText(`${c.n}x`, 0, 16);
+      ctx.font = '700 24px Fredoka, sans-serif';
+      ctx.lineWidth = 7; ctx.strokeText('COMBO!', 0, 50); ctx.fillStyle = col === '#ffffff' ? '#ffd43b' : col; ctx.fillText('COMBO!', 0, 50);
+      ctx.font = '700 20px Fredoka, sans-serif';
+      ctx.lineWidth = 6; ctx.strokeText(`+${c.bonus}`, 0, -46); ctx.fillStyle = '#fff'; ctx.fillText(`+${c.bonus}`, 0, -46);
+      ctx.restore();
+    }
+  }
+
+  drawComboMeter(ctx, t) {
+    const n = this.chain || 0;
+    const x = 16, y = 106, w = 150, h = 40;
+    const s = 1 + this.comboPulse * 0.18;
+    const jig = this.comboBreak > 0 ? Math.sin(t * 50) * 4 * this.comboBreak : 0;
+    ctx.save(); ctx.translate(x + w / 2 + jig, y + h / 2); ctx.scale(s, s);
+    A.rr(ctx, -w / 2, -h / 2, w, h, 20);
+    ctx.fillStyle = n >= 2 ? this.comboColor(n) : 'rgba(255,255,255,0.9)'; ctx.fill();
+    ctx.lineWidth = 4; ctx.strokeStyle = A.INK; ctx.stroke();
+    ctx.fillStyle = A.INK; ctx.textAlign = 'center';
+    ctx.font = '700 17px Fredoka, sans-serif'; ctx.fillText('COMBO', -26, 6);
+    ctx.font = '700 26px Fredoka, sans-serif'; ctx.fillText(`${Math.max(1, n)}x`, 40, 9);
+    ctx.restore();
+  }
+
+  drawCoins(ctx, t) {
+    const tg = this.barTarget();
+    for (const c of this.coinFx) {
+      if (c.t < 0) continue;
+      const k = c.t / c.dur, e = k * k;
+      const cx = c.x0 + (tg.x - c.x0) * e;
+      const cy = (1 - k) * (1 - k) * c.y0 + 2 * (1 - k) * k * (c.y0 - 220) + k * k * tg.y;
+      const sx = Math.abs(Math.cos(t * 12 + c.x0));
+      ctx.save(); ctx.translate(cx, cy); ctx.scale(Math.max(0.2, sx), 1);
+      ctx.beginPath(); ctx.arc(0, 0, 11, 0, 7); ctx.fillStyle = '#ffd43b'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = '#b8860b'; ctx.stroke();
+      ctx.fillStyle = '#fff3bf'; ctx.beginPath(); ctx.arc(-3, -3, 3, 0, 7); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  drawBanner(ctx, t) {
+    if (this.tut || this.bannerT > 2.4) return;
+    const bt = this.bannerT;
+    let x = W / 2;
+    if (bt < 0.4) { const k = bt / 0.4; x = -300 + (W / 2 + 300) * (1 - Math.pow(1 - k, 3)); }
+    else if (bt > 1.9) { const k = (bt - 1.9) / 0.5; x = W / 2 + (W + 300 - W / 2) * k * k; }
+    ctx.save(); ctx.translate(x, 600); ctx.rotate(-0.04);
+    A.rr(ctx, -280, -70, 560, 140, 30); ctx.fillStyle = '#ff922b'; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = A.INK; ctx.stroke();
+    ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+    ctx.font = '700 54px Fredoka, sans-serif'; ctx.lineWidth = 9; ctx.strokeStyle = A.INK;
+    ctx.strokeText(`Level ${this.level.n}`, 0, 0); ctx.fillStyle = '#fff'; ctx.fillText(`Level ${this.level.n}`, 0, 0);
+    ctx.font = '700 28px Fredoka, sans-serif'; ctx.lineWidth = 6;
+    ctx.strokeText('Open for business!', 0, 44); ctx.fillStyle = '#ffd43b'; ctx.fillText('Open for business!', 0, 44);
+    ctx.restore();
+  }
+
   drawProgress(ctx, x, y, f) {
     A.rr(ctx, x - 34, y - 8, 68, 16, 8); ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = A.INK; ctx.stroke();
     A.rr(ctx, x - 31, y - 5, Math.max(6, 62 * Math.max(0, Math.min(1, f))), 10, 5); ctx.fillStyle = '#69db7c'; ctx.fill();
@@ -694,7 +816,8 @@ export class Game {
     const bx = 230, bw = 360, by = 30;
     const max = this.level.expert * 1.1;
     A.rr(ctx, bx, by, bw, 26, 13); ctx.fillStyle = '#5c4033'; ctx.fill();
-    const f = Math.min(1, this.score / max);
+    const f = Math.min(1, this.shownScore / max);
+    if (this.barPulse > 0) { ctx.save(); ctx.globalAlpha = this.barPulse * 0.6; A.rr(ctx, bx - 4, by - 4, bw + 8, 34, 17); ctx.fillStyle = '#ffd43b'; ctx.fill(); ctx.restore(); }
     if (f > 0) { A.rr(ctx, bx, by, Math.max(26, bw * f), 26, 13); ctx.fillStyle = this.score >= this.level.expert ? '#ffd43b' : this.score >= this.level.goal ? '#69db7c' : '#ff922b'; ctx.fill(); }
     for (const [v, label] of [[this.level.goal, 'GOAL'], [this.level.expert, 'EXPERT']]) {
       const x = bx + bw * (v / max);
@@ -702,10 +825,11 @@ export class Game {
       ctx.font = '700 12px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(label, x, by + 46);
     }
     ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.font = '700 20px Fredoka, sans-serif';
-    ctx.fillText(String(this.score), bx + bw / 2, by + 20);
+    ctx.fillText(String(Math.round(this.shownScore)), bx + bw / 2, by + 20);
     const left = this.pending.length + this.groups.filter(g => g.state !== 'leaving').length;
     ctx.textAlign = 'left'; ctx.font = '600 15px Fredoka, sans-serif'; ctx.fillStyle = '#ffd8a8';
     ctx.fillText(`Guests left: ${left}`, bx, by + 62);
+    this.drawComboMeter(ctx, t);
     // pause
     A.rr(ctx, 640, 18, 60, 60, 18); ctx.fillStyle = '#ff922b'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
     ctx.fillStyle = '#fff'; ctx.fillRect(658, 34, 8, 28); ctx.fillRect(674, 34, 8, 28);
