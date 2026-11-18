@@ -1,6 +1,6 @@
 // All game art is drawn in code (cartoon vector style) so it stays crisp on any
 // screen and the download stays tiny. Original characters:
-//   Poppy  - our roller-skating café owner (orange curls, yellow bandana, mint dress)
+//   Lolly  - our roller-skating 1950s diner waitress (blonde ponytail, pink dress)
 //   Chef Leo - the café's cheerful cook
 
 export const INK = '#3a2a22';
@@ -35,84 +35,110 @@ export function shadow(ctx, x, y, rx, ry = rx * 0.32) {
   ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
 }
 
-// ---------- Background ----------
+// ---------- Background (1950s diner) ----------
 export function drawBackground(ctx, cafe) {
   const W = 720, H = 1280;
-  // floor
+  // classic diner checkerboard floor
   ctx.fillStyle = cafe.floorA; ctx.fillRect(0, 0, W, H);
-  const s = 72;
+  const s = 60;
+  ctx.fillStyle = cafe.floorB;
   for (let y = 230; y < H; y += s) for (let x = 0; x < W; x += s) {
-    if (((x / s) + (y - 230) / s) % 2 === 0) { ctx.fillStyle = cafe.floorB; ctx.fillRect(x, y, s, s); }
+    if ((Math.round(x / s) + Math.round((y - 230) / s)) % 2 === 0) ctx.fillRect(x, y, s, s);
   }
-  // back wall
-  ctx.fillStyle = cafe.wall; ctx.fillRect(0, 96, W, 140);
-  ctx.fillStyle = cafe.wallTrim; ctx.fillRect(0, 96, W, 10);
-  // stripes on wall
-  ctx.globalAlpha = 0.12; ctx.fillStyle = '#fff';
-  for (let x = 0; x < W; x += 40) ctx.fillRect(x, 106, 20, 130);
-  ctx.globalAlpha = 1;
-  // window with sky
-  rr(ctx, 270, 112, 180, 70, 14); blob(ctx, cafe.sky);
-  ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(360, 112); ctx.lineTo(360, 182); ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.ellipse(310, 140, 18, 8, 0, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(410, 150, 14, 6, 0, 0, 7); ctx.fill();
-  // awning above window
+  // floor shine
+  const fl = ctx.createLinearGradient(0, 230, 0, H);
+  fl.addColorStop(0, 'rgba(255,255,255,0.10)'); fl.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = fl; ctx.fillRect(0, 230, W, H - 230);
+  // back wall: pastel top, chrome stripe, coloured lower band
+  ctx.fillStyle = cafe.wall; ctx.fillRect(0, 96, W, 134);
+  ctx.fillStyle = cafe.wallTrim; ctx.fillRect(0, 186, W, 44);
+  chrome(ctx, 0, 178, W, 9);
+  chrome(ctx, 0, 96, W, 6);
+  // window with striped awning
+  rr(ctx, 270, 112, 180, 64, 14); blob(ctx, cafe.sky);
   for (let i = 0; i < 6; i++) {
     ctx.beginPath(); ctx.moveTo(264 + i * 32, 108); ctx.lineTo(296 + i * 32, 108); ctx.arc(280 + i * 32, 108, 16, 0, Math.PI); ctx.closePath();
     blob(ctx, i % 2 ? '#fff' : cafe.wallTrim, INK, 2.5);
   }
-  // counter
+  // counter: chrome top edge and ribbed front
   rr(ctx, 30, 228, 660, 22, 8); blob(ctx, cafe.counterTop);
   rr(ctx, 30, 246, 660, 44, 6); blob(ctx, cafe.counter);
-  ctx.fillStyle = 'rgba(255,255,255,0.15)';
-  for (let x = 50; x < 680; x += 60) ctx.fillRect(x, 254, 34, 28);
-  // plants
-  plant(ctx, 690, 1000); plant(ctx, 30, 330);
+  for (let x = 46; x < 680; x += 26) chrome(ctx, x, 252, 6, 32);
+  chrome(ctx, 30, 244, 660, 5);
+  plant(ctx, 30, 330);
   // entrance mat / waiting area
-  rr(ctx, 14, 1084, 520, 168, 28); ctx.fillStyle = 'rgba(0,0,0,0.08)'; ctx.fill();
-  ctx.setLineDash([12, 10]); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.font = '700 20px Fredoka, sans-serif'; ctx.textAlign = 'left';
+  rr(ctx, 14, 1084, 520, 168, 28); ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fill();
+  ctx.setLineDash([12, 10]); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.textAlign = 'left';
   ctx.font = '700 16px Fredoka, sans-serif'; ctx.fillText('PLEASE WAIT TO BE SEATED', 34, 1246);
   // door
-  rr(ctx, -20, 1110, 34, 150, 8); blob(ctx, '#8b5e3c');
-  // soft light from the window and a gentle vignette
+  rr(ctx, -20, 1110, 34, 150, 8); blob(ctx, '#e03131');
+  // soft light and vignette
   const g1 = ctx.createRadialGradient(360, 300, 40, 360, 300, 520);
-  g1.addColorStop(0, 'rgba(255,255,230,0.22)'); g1.addColorStop(1, 'rgba(255,255,230,0)');
+  g1.addColorStop(0, 'rgba(255,255,230,0.18)'); g1.addColorStop(1, 'rgba(255,255,230,0)');
   ctx.fillStyle = g1; ctx.fillRect(0, 96, W, H);
   const g2 = ctx.createRadialGradient(360, 700, 380, 360, 700, 900);
-  g2.addColorStop(0, 'rgba(60,30,10,0)'); g2.addColorStop(1, 'rgba(60,30,10,0.22)');
+  g2.addColorStop(0, 'rgba(40,20,10,0)'); g2.addColorStop(1, 'rgba(40,20,10,0.25)');
   ctx.fillStyle = g2; ctx.fillRect(0, 96, W, H);
 }
 
-// Fairy lights strung along the wall (animated twinkle)
+// shiny chrome strip
+export function chrome(ctx, x, y, w, h) {
+  const g = w > h ? ctx.createLinearGradient(0, y, 0, y + h) : ctx.createLinearGradient(x, 0, x + w, 0);
+  g.addColorStop(0, '#f8f9fa'); g.addColorStop(0.45, '#adb5bd'); g.addColorStop(0.55, '#dee2e6'); g.addColorStop(1, '#868e96');
+  ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+}
+
+// Animated 1950s diner decor: neon sign, jukebox and neon tube
 export function drawStringLights(ctx, t, cafe) {
-  ctx.strokeStyle = INK; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(0, 110);
-  for (let x = 0; x <= 720; x += 120) ctx.quadraticCurveTo(x + 60, 140, x + 120, 110);
-  ctx.stroke();
-  const cols = ['#ffd43b', '#ff6b9a', '#69db7c', '#74c0fc', '#ff922b'];
-  for (let i = 0; i < 24; i++) {
-    const x = 15 + i * 30, seg = (x % 120) / 120, y = 110 + Math.sin(seg * Math.PI) * 22 + 4;
-    const on = 0.55 + 0.45 * Math.sin(t * 3 + i * 1.7);
-    ctx.globalAlpha = 0.35 * on; ctx.fillStyle = cols[i % 5];
-    ctx.beginPath(); ctx.arc(x, y + 6, 11, 0, 7); ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.beginPath(); ctx.ellipse(x, y + 6, 5, 7, 0, 0, 7); blob(ctx, cols[i % 5], INK, 1.5);
+  // jukebox (left of the window, behind the counter)
+  const jx = 205, jy = 228;
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(jx - 40, jy); ctx.lineTo(jx - 40, jy - 78); ctx.arc(jx, jy - 78, 40, Math.PI, 0); ctx.lineTo(jx + 40, jy); ctx.closePath();
+  blob(ctx, '#8b4513', INK, 3);
+  ctx.beginPath(); ctx.moveTo(jx - 30, jy); ctx.lineTo(jx - 30, jy - 78); ctx.arc(jx, jy - 78, 30, Math.PI, 0); ctx.lineTo(jx + 30, jy); ctx.closePath();
+  const cols = ['#ff6b6b', '#ffd43b', '#69db7c', '#4dabf7', '#cc5de8'];
+  const k = Math.floor(t * 4) % cols.length;
+  ctx.lineWidth = 6; ctx.strokeStyle = cols[k]; ctx.stroke();
+  ctx.lineWidth = 2.5; ctx.strokeStyle = cols[(k + 2) % cols.length]; ctx.stroke();
+  rr(ctx, jx - 20, jy - 92, 40, 30, 6); blob(ctx, '#fff3bf', INK, 2);
+  ctx.fillStyle = INK; for (let i = 0; i < 3; i++) ctx.fillRect(jx - 14, jy - 86 + i * 8, 28, 2);
+  for (let i = 0; i < 4; i++) { ctx.fillStyle = cols[(k + i) % 5]; ctx.beginPath(); ctx.arc(jx - 15 + i * 10, jy - 50, 3.5, 0, 7); ctx.fill(); }
+  // music notes floating up
+  for (let i = 0; i < 2; i++) {
+    const ph = (t * 0.5 + i * 0.5) % 1;
+    ctx.globalAlpha = Math.sin(ph * Math.PI);
+    ctx.fillStyle = INK; ctx.font = '700 22px Fredoka, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(i ? '♫' : '♪', jx + 34 + Math.sin(ph * 6) * 8, jy - 120 - ph * 20);
   }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  // neon sign on the right of the window
+  const flick = (Math.sin(t * 23) > 0.97) ? 0.4 : 1;
+  const nx = 526, ny = 152;
+  ctx.save();
+  rr(ctx, nx - 64, ny - 34, 128, 52, 12); ctx.fillStyle = 'rgba(20,10,30,0.85)'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.textAlign = 'center'; ctx.font = '700 30px Fredoka, sans-serif';
+  ctx.globalAlpha = 0.35 * flick; ctx.lineWidth = 10; ctx.strokeStyle = '#ff5fa2'; ctx.strokeText("LOLLY'S", nx, ny);
+  ctx.globalAlpha = flick; ctx.lineWidth = 3; ctx.strokeStyle = '#ff5fa2'; ctx.strokeText("LOLLY'S", nx, ny);
+  ctx.fillStyle = '#ffe3f1'; ctx.fillText("LOLLY'S", nx, ny);
+  ctx.globalAlpha = 1; ctx.font = '700 11px Fredoka, sans-serif'; ctx.fillStyle = '#66d9e8';
+  ctx.fillText('★ DINER · OPEN ★', nx, ny + 13);
+  ctx.restore();
 }
 
 // Clouds drifting past the window
 export function drawWindowSky(ctx, t, cafe) {
-  ctx.save(); rr(ctx, 270, 112, 180, 70, 14); ctx.clip();
-  ctx.fillStyle = cafe.sky; ctx.fillRect(270, 112, 180, 70);
+  ctx.save(); rr(ctx, 270, 112, 180, 64, 14); ctx.clip();
+  ctx.fillStyle = cafe.sky; ctx.fillRect(270, 112, 180, 64);
   ctx.fillStyle = 'rgba(255,255,255,0.85)';
   for (let i = 0; i < 3; i++) {
     const x = 250 + ((t * (8 + i * 4) + i * 90) % 240), y = 132 + i * 16;
     ctx.beginPath(); ctx.arc(x, y, 9, 0, 7); ctx.arc(x + 12, y - 4, 11, 0, 7); ctx.arc(x + 24, y, 8, 0, 7); ctx.fill();
   }
   ctx.restore();
-  rr(ctx, 270, 112, 180, 70, 14); ctx.lineWidth = 3.5; ctx.strokeStyle = INK; ctx.stroke();
-  ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(360, 112); ctx.lineTo(360, 182); ctx.stroke();
+  rr(ctx, 270, 112, 180, 64, 14); ctx.lineWidth = 3.5; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(360, 112); ctx.lineTo(360, 176); ctx.stroke();
 }
 
 function plant(ctx, x, y) {
@@ -126,16 +152,18 @@ function plant(ctx, x, y) {
 // ---------- Heroine ----------
 // Change these values to restyle the main character in one place.
 export const HERO = {
-  name: 'Poppy',
-  style: 'waves', // 'waves' (shoulder-length waves + headband) or 'buns'
+  name: 'Lolly',
+  // 'fifties' = 1950s diner waitress: high ponytail + front curl, scarf, puff sleeves, name tag
+  // other looks: 'waves' (shoulder-length waves + headband), 'buns'
+  style: 'fifties',
   skin: '#f6cba6', skinShade: '#d99a73',
   hair: '#f7cf4f', hairShine: '#fff1b0', hairDark: '#d9a521',
-  dress: '#ff6b6b', dressDark: '#e03131',
-  apron: '#ffffff', accent: '#ffd43b',
-  skates: '#4dabf7', skatesDark: '#1c7ed6',
+  dress: '#ff8fab', dressDark: '#e64980',
+  apron: '#ffffff', accent: '#3bc9db',
+  skates: '#ffffff', skatesDark: '#ced4da', wheels: '#ff8fab',
 };
 
-export function drawPoppy(ctx, x, y, t, moving, facing, hands, busy, squash = 0) {
+export function drawHeroine(ctx, x, y, t, moving, facing, hands, busy, squash = 0) {
   const H = HERO;
   const bob = moving ? Math.sin(t * 18) * 3 : Math.sin(t * 3) * 1.2;
   const lean = moving ? facing * 0.06 : 0;
@@ -157,7 +185,8 @@ export function drawPoppy(ctx, x, y, t, moving, facing, hands, busy, squash = 0)
   for (const sx of [-12, 12]) {
     rr(ctx, sx - 11, -18, 22, 16, 7); blob(ctx, H.skates, INK, 3);
     ctx.fillStyle = '#fff'; ctx.fillRect(sx - 6, -14, 12, 3);
-    circle(ctx, sx - 6, 0, 4, H.accent, INK, 2); circle(ctx, sx + 6, 0, 4, H.accent, INK, 2);
+    circle(ctx, sx - 6, 0, 4, H.wheels || H.accent, INK, 2); circle(ctx, sx + 6, 0, 4, H.wheels || H.accent, INK, 2);
+    rr(ctx, sx - 11, -19, 22, 5, 2.5); blob(ctx, H.dress, INK, 1.5);
   }
   ctx.translate(0, bob);
   // legs with striped socks
@@ -171,22 +200,43 @@ export function drawPoppy(ctx, x, y, t, moving, facing, hands, busy, squash = 0)
   for (const [dx, dy] of [[-18, -40], [20, -44], [-8, -60], [12, -66], [24, -36]]) { ctx.beginPath(); ctx.arc(dx, dy, 2.5, 0, 7); ctx.fill(); }
   // white collar
   ctx.beginPath(); ctx.moveTo(-14, -86); ctx.quadraticCurveTo(-8, -76, 0, -82); ctx.quadraticCurveTo(8, -76, 14, -86); ctx.closePath(); blob(ctx, '#fff', INK, 2.5);
-  // apron with heart pocket
-  ctx.beginPath(); ctx.moveTo(-12, -70); ctx.lineTo(12, -70); ctx.lineTo(18, -34); ctx.quadraticCurveTo(0, -29, -18, -34); ctx.closePath();
+  // apron with heart pocket (frilly hem for the 1950s look)
+  ctx.beginPath(); ctx.moveTo(-12, -70); ctx.lineTo(12, -70); ctx.lineTo(18, -34);
+  if (H.style === 'fifties') for (let i = 0; i < 6; i++) ctx.arc(15 - i * 6, -34, 3, 0, Math.PI, false);
+  else ctx.quadraticCurveTo(0, -29, -18, -34);
+  ctx.closePath();
   blob(ctx, H.apron, INK, 2.5);
   ctx.save(); ctx.translate(0, -50); ctx.scale(0.9, 0.9);
   ctx.beginPath(); ctx.moveTo(0, 6); ctx.bezierCurveTo(-10, -1, -5, -9, 0, -4); ctx.bezierCurveTo(5, -9, 10, -1, 0, 6); blob(ctx, H.dress, INK, 1.8);
   ctx.restore();
+  if (H.style === 'fifties') {
+    // neck scarf with a knot
+    ctx.beginPath(); ctx.moveTo(-10, -86); ctx.quadraticCurveTo(0, -80, 10, -86); ctx.lineTo(6, -80); ctx.quadraticCurveTo(0, -77, -6, -80); ctx.closePath(); blob(ctx, H.accent, INK, 2);
+    ctx.beginPath(); ctx.moveTo(2, -80); ctx.lineTo(12, -70); ctx.lineTo(6, -68); ctx.closePath(); blob(ctx, H.accent, INK, 2);
+    // name tag
+    rr(ctx, 2, -76, 26, 9, 2); blob(ctx, '#fff', INK, 1.5);
+    ctx.fillStyle = H.dressDark; ctx.font = '700 5px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(H.name.toUpperCase(), 15, -69.5);
+  }
   // arms
   const sw = moving ? Math.sin(t * 18) * 7 : 0;
   const armUp = (h, side) => h ? -78 : -58 + sw * side;
   ctx.strokeStyle = H.skin; ctx.lineWidth = 8; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(-16, -78); ctx.lineTo(-30, armUp(hands[0], 1)); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(16, -78); ctx.lineTo(30, armUp(hands[1], -1)); ctx.stroke();
+  if (H.style === 'fifties') { circle(ctx, -17, -80, 8, '#fff', INK, 2.5); circle(ctx, 17, -80, 8, '#fff', INK, 2.5); }
   // head
   const hy = -110;
   const bun = moving ? Math.sin(t * 18) * 2 : 0;
-  if (H.style === 'buns') {
+  if (H.style === 'fifties') {
+    // high swinging ponytail with a scarf bow, short hair at the back
+    ctx.save(); ctx.translate(-facing * 20, hy - 22);
+    ctx.rotate(-facing * (1.25 + (moving ? Math.sin(t * 18) * 0.25 : Math.sin(t * 2.5) * 0.08)));
+    ctx.beginPath(); ctx.moveTo(-9, 0); ctx.quadraticCurveTo(-22, 32, -6, 56); ctx.quadraticCurveTo(2, 44, 7, 58); ctx.quadraticCurveTo(20, 26, 9, 0); ctx.closePath();
+    blob(ctx, H.hair, INK, 3);
+    ctx.strokeStyle = H.hairDark; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 8); ctx.quadraticCurveTo(-6, 24, 0, 36); ctx.stroke();
+    ctx.restore();
+    ellipse(ctx, 0, hy + 2, 29, 26, H.hair);
+  } else if (H.style === 'buns') {
     ellipse(ctx, 0, hy + 4, 30, 27, H.hair);
     for (const s of [-1, 1]) {
       circle(ctx, s * 21, hy - 25 - bun, 13, H.hair);
@@ -219,7 +269,18 @@ export function drawPoppy(ctx, x, y, t, moving, facing, hands, busy, squash = 0)
   ctx.quadraticCurveTo(22, hy - 12, 8, hy - 15); ctx.quadraticCurveTo(-8, hy - 13, -19, hy - 4); ctx.quadraticCurveTo(-24, hy - 2, -27, hy + 2);
   ctx.closePath(); blob(ctx, H.hair, INK, 2.5);
   ctx.fillStyle = H.hairShine; ctx.beginPath(); ctx.ellipse(-10, hy - 21, 8, 3, -0.3, 0, 7); ctx.fill();
-  if (H.style !== 'buns') {
+  if (H.style === 'fifties') {
+    // big front curl (pin curl roll) and a scarf bow on the ponytail
+    ctx.beginPath(); ctx.ellipse(-4, hy - 27, 19, 11, -0.15, 0, Math.PI * 2); blob(ctx, H.hair, INK, 2.5);
+    ctx.strokeStyle = H.hairDark; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(-4, hy - 27, 6, 0.3, Math.PI * 1.7); ctx.stroke();
+    ctx.fillStyle = H.hairShine; ctx.beginPath(); ctx.ellipse(-12, hy - 32, 6, 2.5, -0.3, 0, 7); ctx.fill();
+    ctx.save(); ctx.translate(-facing * 20, hy - 24); ctx.rotate(-facing * 0.5);
+    for (const d of [-1, 1]) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(d * 14, -12, d * 14, 4); ctx.closePath(); blob(ctx, H.accent, INK, 2); }
+    circle(ctx, 0, 0, 3.5, H.accent, INK, 1.5);
+    ctx.fillStyle = '#fff'; [[-8, -2], [8, -1], [-10, 2]].forEach(([a, b]) => { ctx.beginPath(); ctx.arc(a, b, 1.3, 0, 7); ctx.fill(); });
+    ctx.restore();
+  }
+  if (H.style === 'waves') {
     // headband with a little bow
     ctx.lineCap = 'round';
     ctx.strokeStyle = INK; ctx.lineWidth = 9; ctx.beginPath(); ctx.arc(0, hy - 2, 27, Math.PI * 1.12, Math.PI * 1.88); ctx.stroke();
@@ -357,15 +418,26 @@ export function chairPositions(table) {
 
 export function drawChair(ctx, x, y, color) {
   shadow(ctx, x, y + 14, 24, 8);
-  rr(ctx, x - 22, y - 34, 44, 18, 8); blob(ctx, color.dark, INK, 3);
-  rr(ctx, x - 22, y - 12, 44, 24, 8); blob(ctx, color.fill, INK, 3);
+  // chrome legs
+  ctx.strokeStyle = '#adb5bd'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x - 15, y + 8); ctx.lineTo(x - 17, y + 16); ctx.moveTo(x + 15, y + 8); ctx.lineTo(x + 17, y + 16); ctx.stroke();
+  // vinyl back with tufted lines and a chrome rim
+  rr(ctx, x - 22, y - 36, 44, 20, 9); blob(ctx, color.dark, INK, 3);
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 7, y - 32); ctx.lineTo(x - 7, y - 20); ctx.moveTo(x + 7, y - 32); ctx.lineTo(x + 7, y - 20); ctx.stroke();
+  rr(ctx, x - 23, y - 13, 46, 24, 9); blob(ctx, color.fill, INK, 3);
+  ctx.strokeStyle = '#dee2e6'; ctx.lineWidth = 2; rr(ctx, x - 20, y - 10, 40, 18, 7); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.ellipse(x - 8, y - 5, 8, 3, 0, 0, 7); ctx.fill();
 }
-
 export function drawTableTop(ctx, table, cafe, highlight) {
   const { x, y } = table;
   shadow(ctx, x, y + (table.seats === 4 ? 48 : 30), table.seats === 4 ? 56 : 50, 14);
-  if (table.seats === 4) { rr(ctx, x - 48, y - 40, 96, 84, 18); blob(ctx, cafe.table, highlight || INK, highlight ? 6 : 3.5); }
-  else { ctx.beginPath(); ctx.ellipse(x, y, 44, 32, 0, 0, Math.PI * 2); blob(ctx, cafe.table, highlight || INK, highlight ? 6 : 3.5); }
+  if (table.seats === 4) { rr(ctx, x - 48, y - 40, 96, 84, 18); blob(ctx, cafe.table, highlight || INK, highlight ? 6 : 3.5); rr(ctx, x - 43, y - 35, 86, 74, 14); }
+  else { ctx.beginPath(); ctx.ellipse(x, y, 44, 32, 0, 0, Math.PI * 2); blob(ctx, cafe.table, highlight || INK, highlight ? 6 : 3.5); ctx.beginPath(); ctx.ellipse(x, y, 39, 27, 0, 0, Math.PI * 2); }
+  // chrome rim + retro formica boomerangs
+  ctx.lineWidth = 3; ctx.strokeStyle = '#ced4da'; ctx.stroke();
+  ctx.strokeStyle = 'rgba(77,171,247,0.35)'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+  for (const [dx, dy, r] of [[-18, -12, 0.3], [16, -4, -0.6], [-6, 10, 1.2]]) {
+    ctx.save(); ctx.translate(x + dx, y + dy); ctx.rotate(r); ctx.beginPath(); ctx.moveTo(-7, 3); ctx.quadraticCurveTo(0, -5, 7, 3); ctx.stroke(); ctx.restore();
+  }
   // table number sign, in the table's chair colour
   const sy = y + (table.seats === 4 ? 30 : 20);
   numberBadge(ctx, x, sy, table.no, 1.15, table.colorObj ? table.colorObj.fill : '#fff');

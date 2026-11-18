@@ -38,19 +38,19 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
-          cp app/build/outputs/apk/debug/app-debug.apk ../poppys-cafe-rush-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk ../lollys-cafe-rush-debug.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: poppys-cafe-rush-debug-apk
-          path: poppys-cafe-rush-debug.apk
+          name: lollys-cafe-rush-debug.apk
+          path: lollys-cafe-rush-debug.apk
 
       - name: Publish to the "debug-apk" release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete debug-apk --yes --cleanup-tag || true
-          gh release create debug-apk poppys-cafe-rush-debug.apk \
+          gh release create debug-apk lollys-cafe-rush-debug.apk \
             --target "${{ github.sha }}" --prerelease \
             --title "Latest test build (debug APK)" \
             --notes "Debug build from ${{ github.ref_name }} @ ${{ github.sha }}. Sideload on Android: download the APK on your phone and allow installs from this source."

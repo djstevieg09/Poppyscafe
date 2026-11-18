@@ -1,4 +1,4 @@
-// Sound for Poppy's Café Rush. Everything is synthesized in the browser with
+// Sound for Lolly's Café Rush. Everything is synthesized in the browser with
 // the Web Audio API: no audio files, and all music here is original.
 //
 //   Music: "Morning Bake" (menus, relaxed swing in F) and
@@ -100,8 +100,8 @@ const SONGS = {
     bass: ['F2', 'C3', 'D2', 'A2', 'G2', 'D3', 'C2', 'G2', 'F2', 'C3', 'A2', 'E2', 'D2', 'G2', 'C2', 'C3'],
     drums: { kick: [0], snare: [4], hat: [2, 6], vol: 0.5 },
   },
-  level: { // "Lunch Rush"
-    bpm: 138, swing: 0.08, lead: 0.12,
+  level: { // "Lunch Rush" - 1950s rock 'n' roll shuffle with a boogie-woogie bass
+    bpm: 150, swing: 0.24, lead: 0.12, boogie: true,
     melody: parseLine(`
       E5 G5 C6 . G5 . E5 G5 | A5 - . A5 C6 B5 A5 . | F5 A5 C6 . A5 . F5 A5 | G5 - B5 - D6 - . . |
       E5 G5 C6 . G5 . E5 G5 | G#5 - B5 . D6 . B5 G#5 | A5 C6 E6 . F5 A5 C6 . | B5 - D6 - F6 - G6 . |
@@ -111,7 +111,7 @@ const SONGS = {
              'F', 'F', 'G', 'G', 'Em', 'Em', 'Am', 'Am', 'Dm', 'Dm', 'G', 'G', 'C', 'C', 'G7', 'G7'],
     bass: ['C2', 'G2', 'A2', 'E2', 'F2', 'C3', 'G2', 'D2', 'C2', 'G2', 'E2', 'B2', 'A2', 'F2', 'G2', 'G2',
            'F2', 'C3', 'G2', 'D3', 'E2', 'B2', 'A2', 'E2', 'D2', 'A2', 'G2', 'D2', 'C2', 'G2', 'G2', 'B2'],
-    drums: { kick: [0, 3, 4], snare: [2, 6], hat: [0, 1, 2, 3, 4, 5, 6, 7], vol: 0.6 },
+    drums: { kick: [0, 4], snare: [2, 6], hat: [0, 1, 2, 3, 4, 5, 6, 7], vol: 0.6 },
   },
 };
 CH.Dm = ['D4', 'F4', 'A4'];
@@ -150,9 +150,19 @@ function schedule() {
     // melody
     const n = song.melody[mi];
     if (n) mallet(n.f, t, n.len * eighth * 0.95, song.lead);
-    // bass on each half bar, plus a pickup note
-    if (pos % 4 === 0) pluckBass(hz(song.bass[half]), t, eighth * 3, 0.32);
-    if (pos === 7 && song.bpm > 120) pluckBass(hz(song.bass[(half + 1) % song.bass.length]) * 2, t, eighth, 0.16);
+    if (song.boogie) {
+      // walking boogie bass: 1-3-5-6-b7-6-5-3 over the chord root
+      const bar = Math.floor(mi / 8) * 2 + (pos >= 4 ? 1 : 0);
+      const chord = song.chords[bar % song.chords.length];
+      const minor = /^[A-G][#b]?m(?!aj)/.test(chord);
+      const steps = [0, minor ? 3 : 4, 7, 9, 10, 9, 7, minor ? 3 : 4];
+      const root = hz(song.bass[Math.floor(mi / 8) * 2 % song.bass.length].replace(/\d/, '2'));
+      pluckBass(root * Math.pow(2, steps[pos] / 12), t, eighth * 0.9, 0.26);
+    } else {
+      // bass on each half bar, plus a pickup note
+      if (pos % 4 === 0) pluckBass(hz(song.bass[half]), t, eighth * 3, 0.32);
+      if (pos === 7 && song.bpm > 120) pluckBass(hz(song.bass[(half + 1) % song.bass.length]) * 2, t, eighth, 0.16);
+    }
     // offbeat chord stabs
     if (pos % 4 === 2) stab(CH[song.chords[half]].map(hz), t, 0.028);
     // drums

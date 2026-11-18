@@ -3,7 +3,7 @@ import { generateLevel, restaurantFor, CUSTOMER_TYPES, LEVELS_PER_CAFE, RESTAURA
 import { Game } from './game.js';
 import { Store, packForLevel, PRICE_FALLBACK } from './store.js';
 import { sfx, unlockAudio, setMusicOn, setSfxOn, playMusic, duckMusic } from './audio.js';
-import { drawPoppy, drawChef, drawFood, drawCustomer } from './art.js';
+import { drawHeroine, drawChef, drawFood, drawCustomer } from './art.js';
 import { COLORS } from './levels.js';
 
 // ---------- save ----------
@@ -25,7 +25,7 @@ const store = new Store(save);
 store.init();
 
 const UPGRADES = [
-  { id: 'shoes', icon: '🛼', name: 'Turbo Skates', desc: 'Poppy zooms around faster.', cost: [150, 450, 1000] },
+  { id: 'shoes', icon: '🛼', name: 'Turbo Skates', desc: 'Lolly zooms around faster.', cost: [150, 450, 1000] },
   { id: 'oven', icon: '🍳', name: 'Super Stove', desc: 'Chef Leo cooks faster and more at once.', cost: [250, 650, 1300] },
   { id: 'cushions', icon: '🛋️', name: 'Comfy Cushions', desc: 'Seated guests stay patient for longer.', cost: [200, 550, 1100] },
   { id: 'decor', icon: '🎶', name: 'Waiting Lounge', desc: 'Guests in line lose patience slower.', cost: [150, 450, 1000] },
@@ -90,7 +90,7 @@ function titleArt(now) {
     tctx.restore();
     tctx.save(); tctx.translate(110, 120); tctx.scale(-1.5, 1.5); drawChef(tctx, 0, 120, t, true); tctx.restore();
     tctx.save(); tctx.translate(470, 470); tctx.scale(1.4, 1.4); drawCustomer(tctx, 0, 0, COLORS[1], 'student', 1, t, 4, {}); tctx.restore();
-    tctx.save(); tctx.translate(300, 540 + Math.sin(t * 3) * 6); tctx.scale(2.6, 2.6); drawPoppy(tctx, 0, 0, t, false, 1, [{ kind: 'food', dish: 'burger' }, { kind: 'food', dish: 'cake' }], false); tctx.restore();
+    tctx.save(); tctx.translate(300, 540 + Math.sin(t * 3) * 6); tctx.scale(2.6, 2.6); drawHeroine(tctx, 0, 0, t, false, 1, [{ kind: 'food', dish: 'burger' }, { kind: 'food', dish: 'cake' }], false); tctx.restore();
   }
   requestAnimationFrame(titleArt);
 }
@@ -197,7 +197,7 @@ function openIntro(n) {
   $('#intro-guests').textContent = L.groups.length;
   $('#intro-best').textContent = save.data.best[n] ? `Best: ${save.data.best[n]} ${starStr(save.data.stars[n] || 0)}` : '';
   const nt = L.newType ? CUSTOMER_TYPES[L.newType] : null;
-  $('#intro-new').innerHTML = nt ? `<b>New customers: ${nt.name}</b><br>${nt.blurb}` : (n === 1 ? '<b>Welcome to Poppy\'s!</b><br>Seat guests, take orders, serve food, collect the bill and clear up. Follow the purple tips.' : '');
+  $('#intro-new').innerHTML = nt ? `<b>New customers: ${nt.name}</b><br>${nt.blurb}` : (n === 1 ? '<b>Welcome to Lolly\'s!</b><br>Seat guests, take orders, serve food, collect the bill and clear up. Follow the purple tips.' : '');
   $('#intro-new').hidden = !$('#intro-new').innerHTML;
 }
 $('#btn-intro-start').onclick = () => { sfx.tap(); startLevel(introLevel); };

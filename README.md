@@ -1,4 +1,4 @@
-# Poppy's Café Rush
+# Lolly's Café Rush
 
 An original cartoon time-management café game (seat guests, take orders, serve, collect, clear).
 Runs in any browser; wraps to iOS/Android with Capacitor.

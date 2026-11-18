@@ -9,18 +9,18 @@ export const COLORS = [
   { id: 'yellow', fill: '#ffd43b', dark: '#c9a20c' },
 ];
 
-// Ten cafes, ten levels each. After level 100 the cafes repeat with a harder tier.
+// Ten 1950s-style diners, ten levels each. After level 100 the cafes repeat with a harder tier.
 export const RESTAURANTS = [
-  { name: 'Sunny Corner Café', floorA: '#f8e6c8', floorB: '#f0d6ac', wall: '#ffb4a2', wallTrim: '#e5989b', counter: '#a0673f', counterTop: '#f3d9b1', table: '#fff6e5', sky: '#ffe5d0' },
-  { name: 'Seaside Snack Shack', floorA: '#e9f6fb', floorB: '#d3ecf5', wall: '#7fd1e8', wallTrim: '#3fa7c4', counter: '#c58f5a', counterTop: '#ffe8c2', table: '#ffffff', sky: '#c9f0ff' },
-  { name: 'Garden Tea House', floorA: '#e8f5e0', floorB: '#d5ebc8', wall: '#a8d8a0', wallTrim: '#6fb365', counter: '#8a6a4a', counterTop: '#f6efd8', table: '#fffdf2', sky: '#e5f9da' },
-  { name: 'Neon Night Diner', floorA: '#2f2b4a', floorB: '#3a3560', wall: '#5b3f8c', wallTrim: '#ff5fa2', counter: '#d64585', counterTop: '#ffe0f0', table: '#f4f0ff', sky: '#2a1f44' },
-  { name: 'Alpine Lodge', floorA: '#efe1cf', floorB: '#dfc8ab', wall: '#9c6644', wallTrim: '#6f4518', counter: '#7f5539', counterTop: '#e6ccb2', table: '#fff8ee', sky: '#dbe9f5' },
-  { name: 'Rooftop Bistro', floorA: '#f1f1f1', floorB: '#e1e1e1', wall: '#ffd6a5', wallTrim: '#ff9f43', counter: '#4b5563', counterTop: '#f9fafb', table: '#ffffff', sky: '#ffe8cc' },
-  { name: 'Desert Oasis', floorA: '#fbe7c6', floorB: '#f4d39b', wall: '#f4a261', wallTrim: '#e76f51', counter: '#2a9d8f', counterTop: '#e9f5f2', table: '#fffaf0', sky: '#ffe9c7' },
-  { name: 'Candy Lane Parlour', floorA: '#ffe3f1', floorB: '#ffd0e8', wall: '#ffadd2', wallTrim: '#f06595', counter: '#9775fa', counterTop: '#f3f0ff', table: '#ffffff', sky: '#ffeaf5' },
-  { name: 'Harbour Noodle Bar', floorA: '#fdf0d5', floorB: '#f5deb0', wall: '#c1121f', wallTrim: '#780000', counter: '#3d3d3d', counterTop: '#fdf0d5', table: '#fffaf0', sky: '#ffe0cc' },
-  { name: 'Starlight Space Café', floorA: '#2b2d42', floorB: '#34374f', wall: '#4361ee', wallTrim: '#7209b7', counter: '#8d99ae', counterTop: '#edf2f4', table: '#edf2f4', sky: '#14152b' },
+  { name: "Lolly's Diner", floorA: '#fdf6ec', floorB: '#4b4b5c', wall: '#ffc9d6', wallTrim: '#e64980', counter: '#e03131', counterTop: '#f1f3f5', table: '#fff5f5', sky: '#c5f6fa' },
+  { name: 'Seaside Soda Shop', floorA: '#f8f9fa', floorB: '#4dabf7', wall: '#c5f6fa', wallTrim: '#1098ad', counter: '#15aabf', counterTop: '#f8f9fa', table: '#ffffff', sky: '#a5d8ff' },
+  { name: 'Route 66 Drive-In', floorA: '#fff5f5', floorB: '#e03131', wall: '#ffe066', wallTrim: '#c92a2a', counter: '#343a40', counterTop: '#f1f3f5', table: '#ffffff', sky: '#ffd8a8' },
+  { name: 'Neon Night Diner', floorA: '#2b2140', floorB: '#3d2f5c', wall: '#5b3f8c', wallTrim: '#ff5fa2', counter: '#d64585', counterTop: '#ffe0f0', table: '#f4f0ff', sky: '#2a1f44' },
+  { name: 'Mint Malt Shop', floorA: '#fff9db', floorB: '#8f5b34', wall: '#d3f9d8', wallTrim: '#2f9e44', counter: '#c2255c', counterTop: '#f8f9fa', table: '#ffffff', sky: '#d0ebff' },
+  { name: "Rock 'n' Roll Burger Bar", floorA: '#f8f9fa', floorB: '#2b2b2b', wall: '#ff8787', wallTrim: '#212529', counter: '#495057', counterTop: '#e9ecef', table: '#ffffff', sky: '#ffe3e3' },
+  { name: 'Desert Drive-In', floorA: '#fbe7c6', floorB: '#e8590c', wall: '#ffd8a8', wallTrim: '#e76f51', counter: '#2a9d8f', counterTop: '#e9f5f2', table: '#fffaf0', sky: '#ffe9c7' },
+  { name: 'Candy Lane Parlour', floorA: '#fff0f6', floorB: '#f783ac', wall: '#ffdeeb', wallTrim: '#d6336c', counter: '#9775fa', counterTop: '#f3f0ff', table: '#ffffff', sky: '#ffeaf5' },
+  { name: 'Harbour Milkshake Bar', floorA: '#f1f3f5', floorB: '#1864ab', wall: '#fff3bf', wallTrim: '#1864ab', counter: '#c92a2a', counterTop: '#f8f9fa', table: '#ffffff', sky: '#d0ebff' },
+  { name: 'Atomic Space Diner', floorA: '#2b2d42', floorB: '#3a3d5c', wall: '#4361ee', wallTrim: '#f72585', counter: '#8d99ae', counterTop: '#edf2f4', table: '#edf2f4', sky: '#14152b' },
 ];
 
 // Customer personalities. Multipliers are relative to a regular customer.

@@ -380,7 +380,7 @@ export class Game {
     }
     this.chefCooking = cooking > 0;
 
-    // Poppy
+    // Lolly (the heroine)
     const p = this.poppy;
     if (p.pause > 0) p.pause -= dt;
     else {
@@ -467,7 +467,7 @@ export class Game {
     const st = (...a) => g() && a.includes(g().state);
     const tableTarget = () => (g() && g().table) || t();
     this._tutSteps = [
-      { card: true, title: "Welcome to Poppy's Café!", text: "You're Poppy, and today is opening day. Let's learn how to look after your customers, one step at a time." },
+      { card: true, title: "Welcome to Lolly's Café!", text: "You're Lolly, and today is opening day. Let's learn how to look after your customers, one step at a time." },
       { text: 'A customer has arrived! Drag them to a table. (You can also tap them, then tap a table.)', drag: true, done: () => g() && g().table },
       { text: 'Nice! Tip: seating customers on chairs that match their shirt colour earns bonus points. Now they are reading the menu…', done: () => st('order', 'waitfood', 'eating', 'check') },
       { text: 'They are ready to order! Tap their table to take the order.', target: () => tableTarget(), done: () => this.notepad.length || st('eating', 'check') || this.kitchen.length },
@@ -480,7 +480,7 @@ export class Game {
       { text: 'They left some dirty dishes. Tap the table to clear it.', target: () => this.tables.find(tb => tb.dirty) || t(), done: () => !this.tables.some(tb => tb.dirty) },
       { text: 'Drop the dishes in the blue tub so your hands are free.', target: () => ({ x: BIN.x, y: BIN.y }), done: () => !this.poppy.hands.some(h => h && h.kind === 'dishes') },
       { card: true, title: 'Watch the hearts!', text: 'Customers lose hearts while they wait. If the hearts run out, they storm off and you lose their money. Serve quickly to keep them smiling!' },
-      { card: true, title: 'Pro tips', text: 'Tap several jobs in a row and Poppy will do them in order (look for the purple numbers).\n\nDoing the same job back to back, like taking 3 orders, gives a CHAIN bonus.\n\nReach the GOAL score to pass, and EXPERT for 3 stars.' },
+      { card: true, title: 'Pro tips', text: 'Tap several jobs in a row and Lolly will do them in order (look for the purple numbers).\n\nDoing the same job back to back, like taking 3 orders, gives a CHAIN bonus.\n\nReach the GOAL score to pass, and EXPERT for 3 stars.' },
       { card: true, title: "You're ready!", text: "More customers are on the way. Reach the goal score to finish the level. Good luck!\n\nTap to open the café." },
     ];
     return this._tutSteps;
@@ -524,7 +524,7 @@ export class Game {
       const y0 = 640 - h / 2, s = Math.min(1, this.tut.t * 6);
       ctx.save(); ctx.translate(W / 2, 640); ctx.scale(0.8 + 0.2 * s, 0.8 + 0.2 * s); ctx.translate(-W / 2, -640);
       A.rr(ctx, 60, y0, 600, h, 34); ctx.fillStyle = '#fff6e5'; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = A.INK; ctx.stroke();
-      A.drawPoppy(ctx, 140, y0 + 150, t, false, 1, [null, null], false);
+      A.drawHeroine(ctx, 140, y0 + 150, t, false, 1, [null, null], false);
       ctx.fillStyle = A.INK; ctx.font = '700 38px Fredoka, sans-serif'; ctx.textAlign = 'left';
       ctx.fillText(st.title, 200, y0 + 80);
       ctx.font = '500 26px Fredoka, sans-serif'; ctx.textAlign = 'center';
@@ -632,7 +632,7 @@ export class Game {
       });
     }
     const p = this.poppy;
-    items.push({ y: p.y, f: () => A.drawPoppy(ctx, p.x, p.y, t, p.moving, p.facing, p.hands, p.busyT > 0, p.squash || 0) });
+    items.push({ y: p.y, f: () => A.drawHeroine(ctx, p.x, p.y, t, p.moving, p.facing, p.hands, p.busyT > 0, p.squash || 0) });
     items.push({ y: COFFEE.y + 30, f: () => A.drawCoffee(ctx, COFFEE.x, COFFEE.y, this.coffeeCd <= 0, t, this.coffeeLvl) });
     items.sort((a, b) => a.y - b.y);
     for (const it of items) it.f();
@@ -704,7 +704,7 @@ export class Game {
   }
 
   drawTable(ctx, tb, t, seatable) {
-    // If Poppy is carrying this table's food, make the table glow so it's easy to find
+    // If Lolly is carrying this table's food, make the table glow so it's easy to find
     const g0 = tb.group;
     const carrying = g0 && g0.state === 'waitfood' && this.poppy.hands.some(h => h && h.kind === 'food' && h.g === g0);
     if (carrying) {
