@@ -55,7 +55,11 @@ export class Game {
     this.queueDecayMult = 1 - 0.15 * (upgrades.decor || 0);
     this.tableDecayMult = 1 - 0.15 * (upgrades.cushions || 0);
     this.coffeeLvl = upgrades.coffee || 0;
-    this.tutorial = level.n <= 2;
+    this.hintsOn = level.n <= 2;
+    // Level 1 (first time): a guided, step-by-step tutorial with one practice customer.
+    this.tut = cb.tutorial ? { step: 0, t: 0 } : null;
+    this.tutG = null;
+    if (this.tut && this.pending.length) Object.assign(this.pending[0], { size: 2, type: 'regular', color: this.tables[0].color });
     this.bg = document.createElement('canvas');
     this.bg.width = W; this.bg.height = H;
     A.drawBackground(this.bg.getContext('2d'), this.cafe);
@@ -99,6 +103,8 @@ export class Game {
     const g = { id: uid++, ...def, members, hearts: 5, state: 'queue', table: null, timer: 0, served: false, angry: false, hop: 0 };
     this.groups.push(g);
     this.queue.push(g);
+    if (this.tut && !this.tutG) this.tutG = g;
+    sfx.door();
   }
 
   // ---------------- input ----------------
@@ -132,6 +138,11 @@ export class Game {
 
   pointerDown(x, y) {
     if (this.ended) return;
+    if (this.tut && this.tutSteps()[this.tut.step].card) {
+      if (Math.hypot(x - 670, y - 48) < 40) { this.cb.onPause(); return; }
+      if (this.tut.t > 0.4) this.tutNext();
+      return;
+    }
     const g = this.hitGroup(x, y);
     if (g) { this.selected = g; this.drag = { g, x, y, sx: x, sy: y, moved: false }; sfx.tap(); return; }
     const target = this.hitTarget(x, y);
@@ -205,7 +216,7 @@ export class Game {
         const bill = Math.round((14 + 6 * g.size) * type.tip);
         const tip = Math.round(g.hearts * 3 * g.size * type.tip);
         this.addScore(bill + tip, t.x, t.y - 70, 'check', `+${bill}  tip +${tip}`);
-        sfx.cash(); this.burst(t.x, t.y - 40, '#ffd43b', 14);
+        sfx.cash(tip); this.burst(t.x, t.y - 40, '#ffd43b', tip >= 20 ? 26 : 14);
         this.served++;
         this.leave(g, false);
         t.dirty = true;
@@ -258,7 +269,7 @@ export class Game {
       if (h < 0) { this.float(p.x, p.y - 150, 'Hands full!', '#ffe3e3', 24); return false; }
       p.hands[h] = { kind: 'food', g: food.g, dish: food.dish, tableNo: food.g.table ? food.g.table.no : 0 };
       this.slots[a.ref] = null;
-      sfx.tap();
+      sfx.pickup();
       return true;
     }
     if (a.kind === 'bin') {
@@ -285,6 +296,7 @@ export class Game {
     const qi = this.queue.indexOf(g);
     if (qi >= 0) this.queue.splice(qi, 1);
     if (g.table) { if (angry && g.served) g.table.dirty = true; g.table.group = null; }
+    if (!angry) setTimeout(() => sfx.happy(), 250);
     if (angry) {
       this.lost++;
       this.chain = 0; this.lastKind = null;
@@ -303,17 +315,25 @@ export class Game {
   // ---------------- update ----------------
   update(dt) {
     if (this.ended) return;
+    if (this.tut) {
+      this.tut.t += dt;
+      const st = this.tutSteps()[this.tut.step];
+      if (st.card) { this.fx(dt); return; }
+      if (st.done && st.done()) this.tutNext();
+    }
     this.time += dt;
     this.coffeeCd = Math.max(0, this.coffeeCd - dt);
 
     // arrivals
-    while (this.pending.length && this.pending[0].at <= this.time && this.queue.length < QUEUE_SLOTS.length) this.spawn(this.pending.shift());
+    if (this.tut) { if (!this.tutG && this.pending.length) this.spawn(this.pending.shift()); }
+    else while (this.pending.length && this.pending[0].at <= this.time && this.queue.length < QUEUE_SLOTS.length) this.spawn(this.pending.shift());
     if (this.pending.length && this.queue.length >= QUEUE_SLOTS.length) this.pending[0].at = Math.max(this.pending[0].at, this.time + 1);
 
     // groups
     for (const g of this.groups) {
       if (g.state === 'done') continue;
-      const d = this.decay(g);
+      const d = this.tut ? 0 : this.decay(g);
+      if (g.hearts < 1.5 && !g.warned && g.state !== 'leaving') { g.warned = true; sfx.warn(); }
       switch (g.state) {
         case 'queue': g.hearts -= d * this.queueDecayMult * dt; break;
         case 'menu': g.timer -= dt; if (g.timer <= 0) { g.state = 'order'; } break;
@@ -368,13 +388,7 @@ export class Game {
     }
     p.busyT = Math.max(0, p.busyT - dt);
 
-    // fx
-    for (const f of this.floaters) { f.life -= dt; f.y -= 50 * dt; }
-    this.floaters = this.floaters.filter(f => f.life > 0);
-    for (const q of this.particles) { q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 600 * dt; }
-    this.particles = this.particles.filter(q => q.life > 0);
-    for (const t of this.tables) t.pulse = Math.max(0, t.pulse - dt * 3);
-    for (const s of this.slots) if (s && s.pop > 0) s.pop = Math.max(0, s.pop - dt * 4);
+    this.fx(dt);
 
     // end of level
     if (!this.pending.length && !this.groups.length) {
@@ -382,6 +396,15 @@ export class Game {
       const dirty = this.tables.some(t => t.dirty);
       if ((!dirty && this.endTimer > 0.8) || this.endTimer > 7) this.finish();
     }
+  }
+
+  fx(dt) {
+    for (const f of this.floaters) { f.life -= dt; f.y -= 50 * dt; }
+    this.floaters = this.floaters.filter(f => f.life > 0);
+    for (const q of this.particles) { q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 600 * dt; }
+    this.particles = this.particles.filter(q => q.life > 0);
+    for (const t of this.tables) t.pulse = Math.max(0, t.pulse - dt * 3);
+    for (const s of this.slots) if (s && s.pop > 0) s.pop = Math.max(0, s.pop - dt * 4);
   }
 
   moveMembers(g, dt) {
@@ -407,8 +430,115 @@ export class Game {
     this.cb.onEnd({ score: this.score, goal: this.level.goal, expert: this.level.expert, lost: this.lost, served: this.served, bestChain: this.bestChain, matches: this.matches });
   }
 
+  // ---------------- guided tutorial (level 1) ----------------
+  tutSteps() {
+    if (this._tutSteps) return this._tutSteps;
+    const g = () => this.tutG;
+    const t = () => this.tables[0];
+    const st = (...a) => g() && a.includes(g().state);
+    const tableTarget = () => (g() && g().table) || t();
+    this._tutSteps = [
+      { card: true, title: "Welcome to Poppy's Café!", text: "You're Poppy, and today is opening day. Let's learn how to look after your customers, one step at a time." },
+      { text: 'A customer has arrived! Drag them to a table. (You can also tap them, then tap a table.)', drag: true, done: () => g() && g().table },
+      { text: 'Nice! Tip: seating customers on chairs that match their shirt colour earns bonus points. Now they are reading the menu…', done: () => st('order', 'waitfood', 'eating', 'check') },
+      { text: 'They are ready to order! Tap their table to take the order.', target: () => tableTarget(), done: () => this.notepad.length || st('eating', 'check') || this.kitchen.length },
+      { text: 'Tap the ticket wheel to send the order to Chef Bun.', target: () => ({ x: TICKET.x, y: TICKET.y - 20 }), done: () => this.kitchen.length || this.slots.some(Boolean) },
+      { text: 'Chef Bun is cooking. Food will appear on the counter when it is ready…', done: () => this.slots.some(Boolean) || this.poppy.hands.some(h => h && h.kind === 'food') },
+      { text: 'Food is up! Tap the plate on the counter to pick it up. The badge shows which table it is for.', target: () => { const i = this.slots.findIndex(Boolean); return i >= 0 ? { x: SLOT_X[i], y: SLOT_Y } : null; }, done: () => this.poppy.hands.some(h => h && h.kind === 'food') || st('eating', 'check') },
+      { text: 'Now tap the table to serve the food.', target: () => tableTarget(), done: () => st('eating', 'check') },
+      { text: 'Yum! Wait while they eat…', done: () => st('check') },
+      { text: 'They want the bill (£). Tap the table to collect the money. Happy customers leave bigger tips!', target: () => tableTarget(), done: () => !g() || st('leaving', 'done') },
+      { text: 'They left some dirty dishes. Tap the table to clear it.', target: () => this.tables.find(tb => tb.dirty) || t(), done: () => !this.tables.some(tb => tb.dirty) },
+      { text: 'Drop the dishes in the blue tub so your hands are free.', target: () => ({ x: BIN.x, y: BIN.y }), done: () => !this.poppy.hands.some(h => h && h.kind === 'dishes') },
+      { card: true, title: 'Watch the hearts!', text: 'Customers lose hearts while they wait. If the hearts run out, they storm off and you lose their money. Serve quickly to keep them smiling!' },
+      { card: true, title: 'Pro tips', text: 'Tap several jobs in a row and Poppy will do them in order (look for the purple numbers).\n\nDoing the same job back to back, like taking 3 orders, gives a CHAIN bonus.\n\nReach the GOAL score to pass, and EXPERT for 3 stars.' },
+      { card: true, title: "You're ready!", text: "More customers are on the way. Reach the goal score to finish the level. Good luck!\n\nTap to open the café." },
+    ];
+    return this._tutSteps;
+  }
+
+  tutNext() {
+    this.tut.step++; this.tut.t = 0;
+    sfx.tap();
+    if (this.tut.step >= this.tutSteps().length) {
+      // tutorial finished: let the rest of the customers in
+      this.tut = null;
+      if (this.pending.length) {
+        const off = this.pending[0].at, base = this.time + 1.5;
+        for (const p of this.pending) p.at = base + (p.at - off);
+      }
+    }
+  }
+
+  wrap(ctx, text, maxW) {
+    const lines = [];
+    for (const para of text.split('\n')) {
+      if (!para) { lines.push(''); continue; }
+      let line = '';
+      for (const w of para.split(' ')) {
+        const test = line ? line + ' ' + w : w;
+        if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; } else line = test;
+      }
+      lines.push(line);
+    }
+    return lines;
+  }
+
+  drawTutorial(ctx, t) {
+    const st = this.tutSteps()[this.tut.step];
+    ctx.textAlign = 'center';
+    if (st.card) {
+      ctx.fillStyle = 'rgba(30,20,15,0.55)'; ctx.fillRect(0, 96, W, H - 96);
+      ctx.font = '500 26px Fredoka, sans-serif';
+      const lines = this.wrap(ctx, st.text, 520);
+      const h = 230 + lines.length * 36;
+      const y0 = 640 - h / 2, s = Math.min(1, this.tut.t * 6);
+      ctx.save(); ctx.translate(W / 2, 640); ctx.scale(0.8 + 0.2 * s, 0.8 + 0.2 * s); ctx.translate(-W / 2, -640);
+      A.rr(ctx, 60, y0, 600, h, 34); ctx.fillStyle = '#fff6e5'; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = A.INK; ctx.stroke();
+      A.drawPoppy(ctx, 140, y0 + 150, t, false, 1, [null, null], false);
+      ctx.fillStyle = A.INK; ctx.font = '700 38px Fredoka, sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText(st.title, 200, y0 + 80);
+      ctx.font = '500 26px Fredoka, sans-serif'; ctx.textAlign = 'center';
+      lines.forEach((l, i) => ctx.fillText(l, W / 2, y0 + 190 + i * 36));
+      const by = y0 + h - 30 + Math.sin(t * 5) * 3;
+      ctx.fillStyle = '#7048e8'; ctx.font = '700 24px Fredoka, sans-serif';
+      ctx.fillText(`Tap to continue  ▶   (${this.tut.step + 1}/${this.tutSteps().length})`, W / 2, by);
+      ctx.restore();
+      return;
+    }
+    // instruction banner
+    ctx.font = '600 24px Fredoka, sans-serif';
+    const lines = this.wrap(ctx, st.text, 600);
+    const h = 30 + lines.length * 30, y0 = 1060 - h;
+    A.rr(ctx, 30, y0, 660, h, 22); ctx.fillStyle = 'rgba(112,72,232,0.96)'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.fillStyle = '#fff';
+    lines.forEach((l, i) => ctx.fillText(l, W / 2, y0 + 36 + i * 30));
+    // pointer
+    if (st.drag && this.queue.length && !this.queue[0].members[0].walking) {
+      const from = { x: QUEUE_SLOTS[0].x, y: QUEUE_SLOTS[0].y - 60 }, to = { x: this.tables[0].x, y: this.tables[0].y };
+      const k = (t * 0.6) % 1, e = k < 0.75 ? k / 0.75 : 1;
+      const ease = e * e * (3 - 2 * e);
+      this.drawHand(ctx, from.x + (to.x - from.x) * ease, from.y + (to.y - from.y) * ease, k > 0.9 ? 0 : 1);
+    } else if (st.target) {
+      const p = st.target();
+      if (p) {
+        const b = Math.abs(Math.sin(t * 6)) * 14;
+        ctx.strokeStyle = '#ffd43b'; ctx.lineWidth = 6; ctx.setLineDash([12, 10]); ctx.lineDashOffset = -t * 40;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 62 + Math.sin(t * 6) * 4, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        this.drawHand(ctx, p.x + 30, p.y + 20 + b, 1);
+      }
+    }
+  }
+
+  drawHand(ctx, x, y, alpha) {
+    ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.rotate(-0.4);
+    A.rr(ctx, -11, -6, 22, 44, 11); ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = A.INK; ctx.stroke();
+    A.rr(ctx, -20, 22, 46, 42, 16); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+
   hint() {
-    if (!this.tutorial) return null;
+    if (!this.hintsOn || this.tut) return null;
     const p = this.poppy;
     if (this.slots.some(Boolean) && this.freeHand() >= 0) return 'Food is up! Tap the plate on the counter to pick it up.';
     if (p.hands.some(h => h && h.kind === 'food')) return 'Tap the matching table number to serve the food.';
@@ -519,6 +649,7 @@ export class Game {
     ctx.globalAlpha = 1;
 
     this.drawHud(ctx, t);
+    if (this.tut) this.drawTutorial(ctx, t);
   }
 
   markerPoint(a) {
