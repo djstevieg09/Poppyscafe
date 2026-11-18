@@ -498,43 +498,153 @@ export function numberBadge(ctx, x, y, n, s = 1, fill = null) {
 }
 
 // ---------- Kitchen ----------
-// Chef Leo: the café's cook (human)
-export function drawChef(ctx, x, y, t, cooking) {
-  const stir = cooking ? Math.sin(t * 10) * 4 : 0;
+// Chef Leo: the diner's cook (human). While cooking he cycles through chopping,
+// stirring a pot and flipping a pancake. pass: 'back' = body and head (drawn behind the
+// counter), 'front' = arms and kitchen tools (drawn on top of the counter), 'all' = both.
+export function chefAction(t, cooking) {
+  if (!cooking) return { name: 'idle', p: 0 };
+  const cycle = 2.2, k = (t / cycle) % 3;
+  return { name: ['chop', 'stir', 'flip'][Math.floor(k)], p: k % 1 };
+}
+
+export function drawChef(ctx, x, y, t, cooking, pass = 'all') {
   const skin = '#e0ac69';
+  const act = chefAction(t, cooking);
   ctx.save(); ctx.translate(x, y);
-  // body: white chef jacket with red neckerchief
-  ellipse(ctx, 0, 8, 38, 32, '#fff');
-  ctx.fillStyle = INK; [[-8, -4], [8, -4], [-8, 10], [8, 10]].forEach(([a, b]) => { ctx.beginPath(); ctx.arc(a, b + 8, 2.4, 0, 7); ctx.fill(); });
-  ctx.beginPath(); ctx.moveTo(-16, -12); ctx.lineTo(16, -12); ctx.lineTo(0, 6); ctx.closePath(); blob(ctx, '#e03131', INK, 2.5);
-  // head
-  const hy = -34 + (cooking ? Math.sin(t * 5) * 1.5 : 0);
-  circle(ctx, -27, hy + 2, 6, skin, INK, 2.5); circle(ctx, 27, hy + 2, 6, skin, INK, 2.5);
-  circle(ctx, 0, hy, 27, skin);
-  // sideburns / curly hair under the hat
-  for (const s of [-1, 1]) { circle(ctx, s * 22, hy - 12, 8, '#2d2d2d', INK, 2); circle(ctx, s * 25, hy - 2, 6, '#2d2d2d', INK, 2); }
-  // tall puffy chef hat
-  ctx.beginPath(); ctx.arc(-14, hy - 46, 15, 0, 7); ctx.arc(0, hy - 58, 18, 0, 7); ctx.arc(14, hy - 46, 15, 0, 7); blob(ctx, '#fff', INK, 3);
-  rr(ctx, -22, hy - 44, 44, 22, 5); blob(ctx, '#fff', INK, 3);
-  ctx.strokeStyle = '#dee2e6'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-8, hy - 40); ctx.lineTo(-8, hy - 26); ctx.moveTo(8, hy - 40); ctx.lineTo(8, hy - 26); ctx.stroke();
-  // eyes (happy squint when cooking)
-  ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.fillStyle = INK;
-  if (cooking) { ctx.beginPath(); ctx.arc(-10, hy - 2, 4, Math.PI * 1.1, Math.PI * 1.9); ctx.moveTo(14, hy - 2); ctx.arc(10, hy - 2, 4, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); }
-  else { ctx.beginPath(); ctx.arc(-10, hy - 3, 3.5, 0, 7); ctx.arc(10, hy - 3, 3.5, 0, 7); ctx.fill(); }
-  // nose, cheeks, big curly moustache, smile
-  ellipse(ctx, 0, hy + 5, 5, 4, '#d4955a', INK, 2);
-  ctx.fillStyle = 'rgba(255,100,100,0.35)'; ctx.beginPath(); ctx.arc(-16, hy + 8, 5, 0, 7); ctx.arc(16, hy + 8, 5, 0, 7); ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(0, hy + 10); ctx.bezierCurveTo(-8, hy + 6, -18, hy + 8, -20, hy + 14); ctx.bezierCurveTo(-22, hy + 8, -14, hy + 18, 0, hy + 13);
-  ctx.bezierCurveTo(14, hy + 18, 22, hy + 8, 20, hy + 14); ctx.bezierCurveTo(18, hy + 8, 8, hy + 6, 0, hy + 10);
-  blob(ctx, '#2d2d2d', INK, 2);
-  ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, hy + 16, 5, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
-  // pan
-  ctx.save(); ctx.translate(36 + stir, -2);
-  rr(ctx, 0, -6, 42, 10, 5); blob(ctx, '#495057', INK, 2.5); rr(ctx, 40, -3, 22, 5, 2); blob(ctx, '#212529', INK, 2);
-  if (cooking) { ctx.fillStyle = 'rgba(255,255,255,0.7)'; for (let i = 0; i < 3; i++) { const ph = (t * 1.5 + i / 3) % 1; ctx.beginPath(); ctx.arc(12 + i * 9, -10 - ph * 30, 4 + ph * 4, 0, 7); ctx.globalAlpha = 1 - ph; ctx.fill(); } ctx.globalAlpha = 1; }
+  if (pass !== 'front') {
+    const lean = act.name === 'chop' ? Math.sin(t * 14) * 0.02 : act.name === 'flip' ? -0.04 : 0;
+    ctx.save(); ctx.rotate(lean);
+    // body: white chef jacket with red neckerchief
+    ellipse(ctx, 0, 8, 38, 32, '#fff');
+    ctx.fillStyle = INK; [[-8, -4], [8, -4], [-8, 10], [8, 10]].forEach(([a, b]) => { ctx.beginPath(); ctx.arc(a, b + 8, 2.4, 0, 7); ctx.fill(); });
+    ctx.beginPath(); ctx.moveTo(-16, -12); ctx.lineTo(16, -12); ctx.lineTo(0, 6); ctx.closePath(); blob(ctx, '#e03131', INK, 2.5);
+    // head (bobs along while cooking)
+    const hy = -34 + (cooking ? Math.sin(t * (act.name === 'chop' ? 14 : 6)) * 1.8 : Math.sin(t * 2) * 0.8);
+    circle(ctx, -27, hy + 2, 6, skin, INK, 2.5); circle(ctx, 27, hy + 2, 6, skin, INK, 2.5);
+    circle(ctx, 0, hy, 27, skin);
+    for (const s of [-1, 1]) { circle(ctx, s * 22, hy - 12, 8, '#2d2d2d', INK, 2); circle(ctx, s * 25, hy - 2, 6, '#2d2d2d', INK, 2); }
+    // tall puffy chef hat (wobbles when he flips)
+    ctx.save(); ctx.translate(0, hy - 22); ctx.rotate(act.name === 'flip' ? Math.sin(act.p * Math.PI * 2) * 0.08 : 0); ctx.translate(0, -(hy - 22));
+    ctx.beginPath(); ctx.arc(-14, hy - 46, 15, 0, 7); ctx.arc(0, hy - 58, 18, 0, 7); ctx.arc(14, hy - 46, 15, 0, 7); blob(ctx, '#fff', INK, 3);
+    rr(ctx, -22, hy - 44, 44, 22, 5); blob(ctx, '#fff', INK, 3);
+    ctx.strokeStyle = '#dee2e6'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-8, hy - 40); ctx.lineTo(-8, hy - 26); ctx.moveTo(8, hy - 40); ctx.lineTo(8, hy - 26); ctx.stroke();
+    ctx.restore();
+    // eyes look at what he's doing
+    const look = cooking ? -3 : 0;
+    ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.fillStyle = INK;
+    if (act.name === 'flip' && act.p > 0.2 && act.p < 0.8) { ctx.beginPath(); ctx.arc(-10 + look, hy - 5, 4, 0, 7); ctx.arc(10 + look, hy - 5, 4, 0, 7); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-9 + look, hy - 7, 1.4, 0, 7); ctx.arc(11 + look, hy - 7, 1.4, 0, 7); ctx.fill(); }
+    else if (cooking) { ctx.beginPath(); ctx.arc(-10 + look, hy - 2, 4, Math.PI * 1.1, Math.PI * 1.9); ctx.moveTo(14 + look, hy - 2); ctx.arc(10 + look, hy - 2, 4, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); }
+    else if ((t % 4) < 0.12) { ctx.beginPath(); ctx.moveTo(-14, hy - 3); ctx.lineTo(-6, hy - 3); ctx.moveTo(6, hy - 3); ctx.lineTo(14, hy - 3); ctx.stroke(); }
+    else { ctx.beginPath(); ctx.arc(-10, hy - 3, 3.5, 0, 7); ctx.arc(10, hy - 3, 3.5, 0, 7); ctx.fill(); }
+    // nose, cheeks, curly moustache, mouth
+    ellipse(ctx, 0, hy + 5, 5, 4, '#d4955a', INK, 2);
+    ctx.fillStyle = 'rgba(255,100,100,0.35)'; ctx.beginPath(); ctx.arc(-16, hy + 8, 5, 0, 7); ctx.arc(16, hy + 8, 5, 0, 7); ctx.fill();
+    const mw = cooking ? Math.sin(t * 8) * 1.5 : 0;
+    ctx.beginPath();
+    ctx.moveTo(0, hy + 10); ctx.bezierCurveTo(-8, hy + 6, -18, hy + 8 - mw, -20, hy + 14 - mw); ctx.bezierCurveTo(-22, hy + 8, -14, hy + 18, 0, hy + 13);
+    ctx.bezierCurveTo(14, hy + 18, 22, hy + 8, 20, hy + 14 - mw); ctx.bezierCurveTo(18, hy + 8 - mw, 8, hy + 6, 0, hy + 10);
+    blob(ctx, '#2d2d2d', INK, 2);
+    ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath();
+    if (act.name === 'flip' && act.p > 0.2 && act.p < 0.8) { ctx.arc(0, hy + 19, 4, 0, Math.PI * 2); ctx.stroke(); }
+    else { ctx.arc(0, hy + 16, 5, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke(); }
+    ctx.restore();
+  }
+  if (pass !== 'back') drawChefHands(ctx, t, act, skin);
   ctx.restore();
+}
+
+function arm(ctx, sx, sy, hx, hy, skin) {
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = INK; ctx.lineWidth = 13; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(hx, hy); ctx.stroke();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo((sx + hx) / 2, (sy + hy) / 2); ctx.stroke();
+  ctx.strokeStyle = skin; ctx.beginPath(); ctx.moveTo((sx + hx) / 2, (sy + hy) / 2); ctx.lineTo(hx, hy); ctx.stroke();
+  circle(ctx, hx, hy, 6, skin, INK, 2.5);
+}
+
+function drawChefHands(ctx, t, act, skin) {
+  const top = 13; // counter surface, in the chef's local space
+  if (act.name === 'idle') {
+    // tapping fingers on the counter, little spatula resting by his side
+    rr(ctx, -62, top - 4, 30, 5, 2); blob(ctx, '#adb5bd', INK, 2);
+    arm(ctx, -26, -2, -30, top - 2 + Math.abs(Math.sin(t * 6)) * -3, skin);
+    arm(ctx, 26, -2, 30, top - 2, skin);
+    return;
+  }
+  if (act.name === 'chop') {
+    // cutting board with a carrot being sliced
+    rr(ctx, -82, top - 8, 66, 12, 4); blob(ctx, '#c58f5a', INK, 2.5);
+    const slices = Math.floor(act.p * 7);
+    ctx.save(); ctx.translate(-36, top - 13);
+    rr(ctx, -26 + slices * 3, -5, 30 - slices * 3, 10, 5); blob(ctx, '#ff922b', INK, 2);
+    ctx.fillStyle = '#51cf66'; ctx.beginPath(); ctx.moveTo(4, -2); ctx.lineTo(14, -9); ctx.lineTo(12, 2); ctx.closePath(); ctx.fill();
+    for (let i = 0; i < slices; i++) { const sx = -34 - i * 6; circle(ctx, sx, 1 - (i % 2) * 2, 4, '#ffa94d', INK, 1.5); }
+    ctx.restore();
+    // knife going up and down fast
+    const up = Math.abs(Math.sin(t * 14));
+    const kx = -38 + slices * 0.5, ky = top - 16 - up * 18;
+    arm(ctx, -26, -2, kx + 12, ky + 2, skin);
+    ctx.save(); ctx.translate(kx, ky);
+    ctx.beginPath(); ctx.moveTo(-20, 4); ctx.lineTo(4, 4); ctx.lineTo(4, -6); ctx.quadraticCurveTo(-14, -6, -20, 4); ctx.closePath(); blob(ctx, '#e9ecef', INK, 2);
+    rr(ctx, 4, -4, 14, 7, 3); blob(ctx, '#495057', INK, 2);
+    ctx.restore();
+    // the other hand holds the carrot
+    arm(ctx, 26, -2, -12, top - 12, skin);
+    // little chips fly when the knife lands
+    if (up < 0.25) { ctx.fillStyle = '#ffa94d'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(kx - 10 - i * 6, top - 22 - i * 4 - (0.25 - up) * 30, 2.2, 0, 7); ctx.fill(); } }
+    return;
+  }
+  if (act.name === 'stir') {
+    // bubbling pot on a burner
+    const px = -46, py = top - 14;
+    ctx.fillStyle = '#ff6b00'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.ellipse(px - 12 + i * 12, top - 1, 4, 6 + Math.sin(t * 20 + i) * 2, 0, 0, 7); ctx.fill(); }
+    rr(ctx, px - 30, py - 18, 60, 30, 8); blob(ctx, '#868e96', INK, 3);
+    rr(ctx, px - 38, py - 14, 10, 5, 2); blob(ctx, '#495057', INK, 2); rr(ctx, px + 28, py - 14, 10, 5, 2); blob(ctx, '#495057', INK, 2);
+    ellipse(ctx, px, py - 18, 28, 6, '#e8590c', INK, 2.5);
+    for (let i = 0; i < 4; i++) { const ph = (t * 2 + i * 0.25) % 1; circle(ctx, px - 18 + i * 12, py - 19 - ph * 4, 2 + ph * 2, '#ff922b', null); }
+    // spoon going round
+    const a = t * 7;
+    const sx = px + Math.cos(a) * 14, sy = py - 22 + Math.sin(a) * 3;
+    ctx.strokeStyle = '#8b5e3c'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + 10, sy - 30); ctx.stroke();
+    arm(ctx, -26, -2, sx + 10, sy - 30, skin);
+    arm(ctx, 26, -2, 24, top - 4, skin);
+    // big steam clouds
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    for (let i = 0; i < 4; i++) { const ph = (t * 0.8 + i * 0.25) % 1; ctx.globalAlpha = 0.8 * (1 - ph); ctx.beginPath(); ctx.arc(px - 14 + i * 9 + Math.sin(ph * 6 + i) * 6, py - 30 - ph * 50, 6 + ph * 9, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    return;
+  }
+  // flip: pancake tossed out of the frying pan
+  const p = act.p;
+  const tossT = (p * 2) % 1; // two tosses per turn
+  const toss = Math.sin(tossT * Math.PI);
+  const px = -54, py = top - 8 - (tossT < 0.15 ? tossT / 0.15 * 6 : 0);
+  // flames under the pan
+  for (let i = 0; i < 4; i++) { const fh = 8 + Math.sin(t * 24 + i * 2) * 4; ctx.fillStyle = i % 2 ? '#ffd43b' : '#ff6b00'; ctx.beginPath(); ctx.moveTo(px - 16 + i * 10, top + 2); ctx.quadraticCurveTo(px - 13 + i * 10, top - fh, px - 10 + i * 10, top + 2); ctx.fill(); }
+  ctx.save(); ctx.translate(px, py); ctx.rotate(tossT < 0.2 ? -0.25 * Math.sin(tossT / 0.2 * Math.PI) : 0);
+  ellipse(ctx, 0, 0, 26, 7, '#343a40', INK, 2.5);
+  rr(ctx, 24, -3, 30, 6, 3); blob(ctx, '#212529', INK, 2);
   ctx.restore();
+  // pancake flipping through the air
+  ctx.save(); ctx.translate(px, py - 6 - toss * 46); ctx.scale(1, Math.cos(tossT * Math.PI * 2));
+  ellipse(ctx, 0, 0, 17, 6, '#f0b45b', INK, 2); ctx.fillStyle = '#d9822b'; ctx.beginPath(); ctx.ellipse(0, -1, 9, 2.5, 0, 0, 7); ctx.fill();
+  ctx.restore();
+  // sizzle sparks and a puff when it lands
+  if (tossT > 0.9 || tossT < 0.12) {
+    ctx.fillStyle = '#ffe066';
+    for (let i = 0; i < 6; i++) { const an = -Math.PI * (0.15 + i * 0.14); const r = 22 + ((t * 60 + i * 7) % 12); ctx.beginPath(); ctx.arc(px + Math.cos(an) * r, py - 4 + Math.sin(an) * r * 0.6, 2, 0, 7); ctx.fill(); }
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  for (let i = 0; i < 3; i++) { const ph = (t * 1.2 + i / 3) % 1; ctx.globalAlpha = 1 - ph; ctx.beginPath(); ctx.arc(px - 10 + i * 10, py - 10 - ph * 30, 4 + ph * 5, 0, 7); ctx.fill(); }
+  ctx.globalAlpha = 1;
+  arm(ctx, -26, -2, px + 50, py, skin);
+  arm(ctx, 26, -2, 26, top - 4, skin);
+  // "SIZZLE!" text pops briefly
+  if (tossT > 0.9 || tossT < 0.08) {
+    ctx.save(); ctx.translate(px - 4, py - 70); ctx.rotate(-0.15);
+    ctx.font = '700 15px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeStyle = INK; ctx.lineJoin = 'round';
+    ctx.strokeText('SIZZLE!', 0, 0); ctx.fillStyle = '#ffd43b'; ctx.fillText('SIZZLE!', 0, 0);
+    ctx.restore();
+  }
 }
 
 export function drawTicketWheel(ctx, x, y, count, t, pulse, tickets = []) {

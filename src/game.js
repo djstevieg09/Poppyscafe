@@ -590,8 +590,9 @@ export class Game {
     const seatable = this.drag?.moved || this.selected ? (this.drag?.g || this.selected) : null;
 
     // kitchen
-    A.drawChef(ctx, CHEF.x, CHEF.y, t, this.chefCooking);
+    A.drawChef(ctx, CHEF.x, CHEF.y, t, this.chefCooking, 'back');
     A.rr(ctx, 30, 228, 660, 22, 8); ctx.fillStyle = this.cafe.counterTop; ctx.fill(); ctx.lineWidth = 3.5; ctx.strokeStyle = A.INK; ctx.stroke();
+    A.drawChef(ctx, CHEF.x, CHEF.y, t, this.chefCooking, 'front');
     A.drawTicketWheel(ctx, TICKET.x, TICKET.y, this.notepad.length, t, this.notepad.length > 0, this.notepad.filter(g => g.table).map(g => ({ no: g.table.no, color: g.table.colorObj.fill })));
     for (let i = 0; i < SLOT_X.length; i++) {
       const s = this.slots[i];
