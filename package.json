@@ -1,0 +1,18 @@
+{
+  "name": "poppys-cafe-rush",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Original cartoon time-management cafe game. Plain ES modules, no build step.",
+  "scripts": {
+    "start": "npx serve -l 8080 .",
+    "cap:prepare": "rm -rf www && mkdir -p www && cp -r index.html src www/",
+    "cap:ios": "npm run cap:prepare && npx cap sync ios && npx cap open ios",
+    "cap:android": "npm run cap:prepare && npx cap sync android && npx cap open android"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/ios": "^6.1.2",
+    "@capacitor/android": "^6.1.2"
+  }
+}
