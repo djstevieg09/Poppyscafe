@@ -1,0 +1,56 @@
+name: Android APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install Capacitor
+        run: npm install
+
+      - name: Create Android project
+        run: |
+          npm run cap:prepare
+          npx cap add android
+          # lock the game to portrait
+          sed -i 's/<activity /<activity android:screenOrientation="portrait" /' android/app/src/main/AndroidManifest.xml
+          npx cap sync android
+
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ../lollys-cafe-rush-debug.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lollys-cafe-rush-debug.apk
+          path: lollys-cafe-rush-debug.apk
+
+      - name: Publish to the "debug-apk" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete debug-apk --yes --cleanup-tag || true
+          gh release create debug-apk lollys-cafe-rush-debug.apk \
+            --target "${{ github.sha }}" --prerelease \
+            --title "Latest test build (debug APK)" \
+            --notes "Debug build from ${{ github.ref_name }} @ ${{ github.sha }}. Sideload on Android: download the APK on your phone and allow installs from this source."
