@@ -1,6 +1,6 @@
 {
-  "appId": "com.example.poppyscaferush",
-  "appName": "Poppy's Café Rush",
+  "appId": "com.poppyscafe.game",
+  "appName": "Lolly's Café Rush",
   "webDir": "www",
   "backgroundColor": "#3a2a22"
 }
