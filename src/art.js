@@ -1,7 +1,7 @@
 // All game art is drawn in code (cartoon vector style) so it stays crisp on any
 // screen and the download stays tiny. Original characters:
 //   Poppy  - our roller-skating café owner (orange curls, yellow bandana, mint dress)
-//   Chef Bun - a friendly bear who runs the kitchen
+//   Chef Leo - the café's cheerful cook
 
 export const INK = '#3a2a22';
 const SKINS = ['#ffd9b8', '#f1c27d', '#c68642', '#8d5524', '#ffe0c7', '#e0ac69'];
@@ -124,7 +124,19 @@ function plant(ctx, x, y) {
 }
 
 // ---------- Heroine ----------
+// Change these values to restyle the main character in one place.
+export const HERO = {
+  name: 'Poppy',
+  style: 'waves', // 'waves' (shoulder-length waves + headband) or 'buns'
+  skin: '#f6cba6', skinShade: '#d99a73',
+  hair: '#f7cf4f', hairShine: '#fff1b0', hairDark: '#d9a521',
+  dress: '#ff6b6b', dressDark: '#e03131',
+  apron: '#ffffff', accent: '#ffd43b',
+  skates: '#4dabf7', skatesDark: '#1c7ed6',
+};
+
 export function drawPoppy(ctx, x, y, t, moving, facing, hands, busy, squash = 0) {
+  const H = HERO;
   const bob = moving ? Math.sin(t * 18) * 3 : Math.sin(t * 3) * 1.2;
   const lean = moving ? facing * 0.06 : 0;
   shadow(ctx, x, y + 2, 34);
@@ -143,50 +155,96 @@ export function drawPoppy(ctx, x, y, t, moving, facing, hands, busy, squash = 0)
   if (squash) ctx.scale(1 + squash * 0.14, 1 - squash * 0.14);
   // skates
   for (const sx of [-12, 12]) {
-    rr(ctx, sx - 11, -16, 22, 14, 6); blob(ctx, '#ff6b9a', INK, 3);
-    circle(ctx, sx - 6, 0, 4, '#fff', INK, 2); circle(ctx, sx + 6, 0, 4, '#fff', INK, 2);
+    rr(ctx, sx - 11, -18, 22, 16, 7); blob(ctx, H.skates, INK, 3);
+    ctx.fillStyle = '#fff'; ctx.fillRect(sx - 6, -14, 12, 3);
+    circle(ctx, sx - 6, 0, 4, H.accent, INK, 2); circle(ctx, sx + 6, 0, 4, H.accent, INK, 2);
   }
   ctx.translate(0, bob);
-  // legs
-  ctx.fillStyle = '#ffd3b0'; ctx.fillRect(-15, -34, 8, 20); ctx.fillRect(7, -34, 8, 20);
+  // legs with striped socks
+  ctx.fillStyle = H.skin; ctx.fillRect(-15, -36, 8, 20); ctx.fillRect(7, -36, 8, 20);
+  ctx.fillStyle = '#fff'; ctx.fillRect(-15, -24, 8, 7); ctx.fillRect(7, -24, 8, 7);
+  ctx.fillStyle = H.dress; ctx.fillRect(-15, -21, 8, 2); ctx.fillRect(7, -21, 8, 2);
   // dress
-  ctx.beginPath(); ctx.moveTo(-16, -84); ctx.lineTo(16, -84); ctx.lineTo(28, -30); ctx.quadraticCurveTo(0, -24, -28, -30); ctx.closePath();
-  blob(ctx, '#38c9a6');
-  // apron
-  ctx.beginPath(); ctx.moveTo(-11, -70); ctx.lineTo(11, -70); ctx.lineTo(17, -34); ctx.quadraticCurveTo(0, -30, -17, -34); ctx.closePath();
-  blob(ctx, '#ffffff', INK, 2.5);
-  ctx.fillStyle = '#ff6b9a'; ctx.beginPath(); ctx.arc(0, -56, 4, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-15, -86); ctx.lineTo(15, -86); ctx.lineTo(30, -32); ctx.quadraticCurveTo(0, -24, -30, -32); ctx.closePath();
+  blob(ctx, H.dress);
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  for (const [dx, dy] of [[-18, -40], [20, -44], [-8, -60], [12, -66], [24, -36]]) { ctx.beginPath(); ctx.arc(dx, dy, 2.5, 0, 7); ctx.fill(); }
+  // white collar
+  ctx.beginPath(); ctx.moveTo(-14, -86); ctx.quadraticCurveTo(-8, -76, 0, -82); ctx.quadraticCurveTo(8, -76, 14, -86); ctx.closePath(); blob(ctx, '#fff', INK, 2.5);
+  // apron with heart pocket
+  ctx.beginPath(); ctx.moveTo(-12, -70); ctx.lineTo(12, -70); ctx.lineTo(18, -34); ctx.quadraticCurveTo(0, -29, -18, -34); ctx.closePath();
+  blob(ctx, H.apron, INK, 2.5);
+  ctx.save(); ctx.translate(0, -50); ctx.scale(0.9, 0.9);
+  ctx.beginPath(); ctx.moveTo(0, 6); ctx.bezierCurveTo(-10, -1, -5, -9, 0, -4); ctx.bezierCurveTo(5, -9, 10, -1, 0, 6); blob(ctx, H.dress, INK, 1.8);
+  ctx.restore();
   // arms
   const sw = moving ? Math.sin(t * 18) * 7 : 0;
   const armUp = (h, side) => h ? -78 : -58 + sw * side;
-  ctx.strokeStyle = '#ffd3b0'; ctx.lineWidth = 8; ctx.lineCap = 'round';
+  ctx.strokeStyle = H.skin; ctx.lineWidth = 8; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(-16, -78); ctx.lineTo(-30, armUp(hands[0], 1)); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(16, -78); ctx.lineTo(30, armUp(hands[1], -1)); ctx.stroke();
   // head
-  const hy = -108;
-  // ponytail
-  ctx.save(); ctx.translate(-facing * 22, hy - 4); ctx.rotate(-facing * (0.5 + (moving ? Math.sin(t * 18) * 0.15 : 0)));
-  ellipse(ctx, 0, 14, 11, 20, '#e8590c'); ctx.restore();
-  circle(ctx, 0, hy, 27, '#ffd3b0');
-  // curls
-  ctx.fillStyle = '#e8590c';
-  for (const [cx, cy, r] of [[-20, -18, 11], [-8, -26, 12], [8, -26, 12], [20, -18, 11], [-25, -4, 8], [25, -4, 8]]) {
-    circle(ctx, cx, hy + cy, r, '#e8590c', INK, 2.5);
+  const hy = -110;
+  const bun = moving ? Math.sin(t * 18) * 2 : 0;
+  if (H.style === 'buns') {
+    ellipse(ctx, 0, hy + 4, 30, 27, H.hair);
+    for (const s of [-1, 1]) {
+      circle(ctx, s * 21, hy - 25 - bun, 13, H.hair);
+      ctx.fillStyle = H.hairShine; ctx.beginPath(); ctx.arc(s * 21 - 4, hy - 29 - bun, 3.5, 0, 7); ctx.fill();
+      rr(ctx, s * 21 - 9, hy - 15 - bun, 18, 7, 3.5); blob(ctx, H.accent, INK, 2);
+    }
+  } else {
+    // shoulder-length wavy hair that swishes as she skates
+    const sway = moving ? Math.sin(t * 18 + 1) * 3 : Math.sin(t * 2) * 1;
+    ctx.beginPath();
+    ctx.moveTo(-30, hy - 6);
+    ctx.quadraticCurveTo(-34, hy - 36, 0, hy - 36);
+    ctx.quadraticCurveTo(34, hy - 36, 30, hy - 6);
+    for (let i = 0; i < 4; i++) ctx.quadraticCurveTo(38 + sway, hy + 6 + i * 9, 30 + sway * 0.5 - (i % 2) * 4, hy + 12 + i * 9);
+    ctx.quadraticCurveTo(18 + sway, hy + 50, 6, hy + 40);
+    ctx.lineTo(-6, hy + 40);
+    ctx.quadraticCurveTo(-18 + sway, hy + 50, -30 + sway * 0.5, hy + 39);
+    for (let i = 3; i >= 0; i--) ctx.quadraticCurveTo(-38 + sway, hy + 6 + i * 9, -30 + sway * 0.5 + (i % 2) * 4, hy + i * 9);
+    ctx.closePath(); blob(ctx, H.hair, INK, 3);
+    ctx.strokeStyle = H.hairDark; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-24, hy + 14); ctx.quadraticCurveTo(-30, hy + 26, -22, hy + 36); ctx.moveTo(24, hy + 14); ctx.quadraticCurveTo(30, hy + 26, 22, hy + 36); ctx.stroke();
   }
-  // bandana
-  ctx.beginPath(); ctx.ellipse(0, hy - 20, 26, 8, 0, Math.PI, 0); ctx.lineTo(26, hy - 16); ctx.quadraticCurveTo(0, hy - 10, -26, hy - 16); ctx.closePath(); blob(ctx, '#ffd43b', INK, 2.5);
-  ctx.fillStyle = '#fff'; [[-12, -20], [2, -23], [14, -19]].forEach(([a, b]) => { ctx.beginPath(); ctx.arc(a, hy + b, 2.4, 0, 7); ctx.fill(); });
+  circle(ctx, 0, hy, 26, H.skin);
+  // ears
+  circle(ctx, -26, hy + 4, 5, H.skin, INK, 2.5); circle(ctx, 26, hy + 4, 5, H.skin, INK, 2.5);
+  // fringe
+  // side-swept fringe
+  ctx.beginPath(); ctx.moveTo(-27, hy + 2);
+  ctx.quadraticCurveTo(-30, hy - 30, 2, hy - 29); ctx.quadraticCurveTo(28, hy - 28, 27, hy + 2);
+  ctx.quadraticCurveTo(22, hy - 12, 8, hy - 15); ctx.quadraticCurveTo(-8, hy - 13, -19, hy - 4); ctx.quadraticCurveTo(-24, hy - 2, -27, hy + 2);
+  ctx.closePath(); blob(ctx, H.hair, INK, 2.5);
+  ctx.fillStyle = H.hairShine; ctx.beginPath(); ctx.ellipse(-10, hy - 21, 8, 3, -0.3, 0, 7); ctx.fill();
+  if (H.style !== 'buns') {
+    // headband with a little bow
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = INK; ctx.lineWidth = 9; ctx.beginPath(); ctx.arc(0, hy - 2, 27, Math.PI * 1.12, Math.PI * 1.88); ctx.stroke();
+    ctx.strokeStyle = H.dress; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(0, hy - 2, 27, Math.PI * 1.12, Math.PI * 1.88); ctx.stroke();
+    ctx.save(); ctx.translate(18, hy - 25); ctx.rotate(0.5);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-11, -7); ctx.lineTo(-11, 7); ctx.closePath(); blob(ctx, H.dress, INK, 2);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(11, -7); ctx.lineTo(11, 7); ctx.closePath(); blob(ctx, H.dress, INK, 2);
+    circle(ctx, 0, 0, 3.5, H.dressDark, INK, 1.5);
+    ctx.restore();
+  }
   // face
   const ex = facing * 3;
-  if ((t % 3.7) < 0.12) { ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-13 + ex, hy + 2); ctx.lineTo(-5 + ex, hy + 2); ctx.moveTo(5 + ex, hy + 2); ctx.lineTo(13 + ex, hy + 2); ctx.stroke(); }
+  if ((t % 3.7) < 0.12) { ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-13 + ex, hy + 3); ctx.lineTo(-5 + ex, hy + 3); ctx.moveTo(5 + ex, hy + 3); ctx.lineTo(13 + ex, hy + 3); ctx.stroke(); }
   else {
-    ellipse(ctx, -9 + ex, hy + 2, 4.5, 6.5, INK, null); ellipse(ctx, 9 + ex, hy + 2, 4.5, 6.5, INK, null);
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-7.5 + ex, hy - 1, 1.8, 0, 7); ctx.arc(10.5 + ex, hy - 1, 1.8, 0, 7); ctx.fill();
+    ellipse(ctx, -9 + ex, hy + 3, 5, 7, INK, null); ellipse(ctx, 9 + ex, hy + 3, 5, 7, INK, null);
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-7.5 + ex, hy, 2, 0, 7); ctx.arc(10.5 + ex, hy, 2, 0, 7); ctx.fill();
+    // soft lashes on the outer corners
+    ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.beginPath();
+    ctx.moveTo(-13 + ex, hy + 1); ctx.lineTo(-17 + ex, hy); ctx.moveTo(13 + ex, hy + 1); ctx.lineTo(17 + ex, hy); ctx.stroke();
   }
-  ctx.fillStyle = 'rgba(255,107,154,0.45)'; ctx.beginPath(); ctx.ellipse(-16, hy + 10, 6, 3.5, 0, 0, 7); ctx.ellipse(16, hy + 10, 6, 3.5, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(255,107,107,0.45)'; ctx.beginPath(); ctx.ellipse(-16, hy + 12, 6, 3.5, 0, 0, 7); ctx.ellipse(16, hy + 12, 6, 3.5, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = H.skinShade; [[-18, 8], [-14, 10], [14, 10], [18, 8]].forEach(([a, b]) => { ctx.beginPath(); ctx.arc(a, hy + b, 1.3, 0, 7); ctx.fill(); });
   ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.beginPath();
-  if (busy) { ctx.arc(ex, hy + 13, 4, 0, Math.PI * 2); } else { ctx.arc(ex, hy + 10, 7, 0.15 * Math.PI, 0.85 * Math.PI); }
-  ctx.stroke();
+  if (busy) { ctx.arc(ex, hy + 14, 4, 0, Math.PI * 2); ctx.stroke(); }
+  else { ctx.arc(ex, hy + 11, 7, 0.12 * Math.PI, 0.88 * Math.PI); ctx.stroke(); }
   // held items
   const wob = moving ? Math.sin(t * 18) * 2 : 0;
   if (hands[0]) drawHeld(ctx, -32, -84 + wob, hands[0]);
@@ -195,7 +253,7 @@ export function drawPoppy(ctx, x, y, t, moving, facing, hands, busy, squash = 0)
 }
 
 function drawHeld(ctx, x, y, item) {
-  if (item.kind === 'food') drawFood(ctx, x, y, item.dish, 0.8, item.tableNo);
+  if (item.kind === 'food') drawFood(ctx, x, y, item.dish, 0.8, item.tableNo, null, item.tableColor);
   else drawDishes(ctx, x, y, 0.8);
 }
 
@@ -308,16 +366,16 @@ export function drawTableTop(ctx, table, cafe, highlight) {
   shadow(ctx, x, y + (table.seats === 4 ? 48 : 30), table.seats === 4 ? 56 : 50, 14);
   if (table.seats === 4) { rr(ctx, x - 48, y - 40, 96, 84, 18); blob(ctx, cafe.table, highlight || INK, highlight ? 6 : 3.5); }
   else { ctx.beginPath(); ctx.ellipse(x, y, 44, 32, 0, 0, Math.PI * 2); blob(ctx, cafe.table, highlight || INK, highlight ? 6 : 3.5); }
-  // table number
-  ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.font = '700 18px Fredoka, sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText(String(table.no), x, y + (table.seats === 4 ? 36 : 24));
+  // table number sign, in the table's chair colour
+  const sy = y + (table.seats === 4 ? 30 : 20);
+  numberBadge(ctx, x, sy, table.no, 1.15, table.colorObj ? table.colorObj.fill : '#fff');
 }
 
 // ---------- Food & dishes ----------
 const DISHES = ['burger', 'pancakes', 'salad', 'pasta', 'cake'];
 export function dishFor(id) { return DISHES[id % DISHES.length]; }
 
-export function drawFood(ctx, x, y, dish, s = 1, tableNo, t = null) {
+export function drawFood(ctx, x, y, dish, s = 1, tableNo, t = null, badgeColor = null) {
   ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
   ellipse(ctx, 0, 6, 26, 10, '#ffffff', INK, 2.5);
   switch (dish) {
@@ -348,7 +406,7 @@ export function drawFood(ctx, x, y, dish, s = 1, tableNo, t = null) {
     ctx.globalAlpha = 1;
   }
   ctx.restore();
-  if (tableNo) numberBadge(ctx, x + 20 * s, y - 14 * s, tableNo, 0.8 * s);
+  if (tableNo) numberBadge(ctx, x + 22 * s, y - 16 * s, tableNo, 1.05 * s, badgeColor);
 }
 
 export function drawDishes(ctx, x, y, s = 1) {
@@ -358,28 +416,47 @@ export function drawDishes(ctx, x, y, s = 1) {
   ctx.restore();
 }
 
-export function numberBadge(ctx, x, y, n, s = 1) {
-  circle(ctx, x, y, 11 * s, '#fff', INK, 2);
-  ctx.fillStyle = INK; ctx.font = `700 ${Math.round(14 * s)}px Fredoka, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+// Round number badge. With a colour it matches the table's chairs, so orders are easy to match up.
+export function numberBadge(ctx, x, y, n, s = 1, fill = null) {
+  circle(ctx, x, y, 12 * s, fill || '#fff', INK, 2.5);
+  ctx.font = `700 ${Math.round(16 * s)}px Fredoka, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (fill) { ctx.lineWidth = 3.5; ctx.strokeStyle = INK; ctx.lineJoin = 'round'; ctx.strokeText(String(n), x, y + 1); ctx.fillStyle = '#fff'; }
+  else ctx.fillStyle = INK;
   ctx.fillText(String(n), x, y + 1); ctx.textBaseline = 'alphabetic';
 }
 
 // ---------- Kitchen ----------
+// Chef Leo: the café's cook (human)
 export function drawChef(ctx, x, y, t, cooking) {
   const stir = cooking ? Math.sin(t * 10) * 4 : 0;
+  const skin = '#e0ac69';
   ctx.save(); ctx.translate(x, y);
-  ellipse(ctx, 0, 6, 38, 30, '#fff');
-  circle(ctx, -24, -50, 11, '#a5714a'); circle(ctx, 24, -50, 11, '#a5714a');
-  circle(ctx, -24, -50, 5, '#e8b48a', null);
-  circle(ctx, 24, -50, 5, '#e8b48a', null);
-  circle(ctx, 0, -30, 32, '#a5714a');
-  // hat
-  ctx.beginPath(); ctx.arc(-14, -70, 14, 0, 7); ctx.arc(0, -78, 16, 0, 7); ctx.arc(14, -70, 14, 0, 7); blob(ctx, '#fff', INK, 3);
-  rr(ctx, -20, -66, 40, 12, 4); blob(ctx, '#fff', INK, 3);
-  ellipse(ctx, 0, -20, 14, 10, '#e8b48a', INK, 2.5);
-  circle(ctx, 0, -25, 4, INK, null);
-  ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(-11, -36, 3.5, 0, 7); ctx.arc(11, -36, 3.5, 0, 7); ctx.fill();
-  ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -18, 5, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
+  // body: white chef jacket with red neckerchief
+  ellipse(ctx, 0, 8, 38, 32, '#fff');
+  ctx.fillStyle = INK; [[-8, -4], [8, -4], [-8, 10], [8, 10]].forEach(([a, b]) => { ctx.beginPath(); ctx.arc(a, b + 8, 2.4, 0, 7); ctx.fill(); });
+  ctx.beginPath(); ctx.moveTo(-16, -12); ctx.lineTo(16, -12); ctx.lineTo(0, 6); ctx.closePath(); blob(ctx, '#e03131', INK, 2.5);
+  // head
+  const hy = -34 + (cooking ? Math.sin(t * 5) * 1.5 : 0);
+  circle(ctx, -27, hy + 2, 6, skin, INK, 2.5); circle(ctx, 27, hy + 2, 6, skin, INK, 2.5);
+  circle(ctx, 0, hy, 27, skin);
+  // sideburns / curly hair under the hat
+  for (const s of [-1, 1]) { circle(ctx, s * 22, hy - 12, 8, '#2d2d2d', INK, 2); circle(ctx, s * 25, hy - 2, 6, '#2d2d2d', INK, 2); }
+  // tall puffy chef hat
+  ctx.beginPath(); ctx.arc(-14, hy - 46, 15, 0, 7); ctx.arc(0, hy - 58, 18, 0, 7); ctx.arc(14, hy - 46, 15, 0, 7); blob(ctx, '#fff', INK, 3);
+  rr(ctx, -22, hy - 44, 44, 22, 5); blob(ctx, '#fff', INK, 3);
+  ctx.strokeStyle = '#dee2e6'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-8, hy - 40); ctx.lineTo(-8, hy - 26); ctx.moveTo(8, hy - 40); ctx.lineTo(8, hy - 26); ctx.stroke();
+  // eyes (happy squint when cooking)
+  ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.fillStyle = INK;
+  if (cooking) { ctx.beginPath(); ctx.arc(-10, hy - 2, 4, Math.PI * 1.1, Math.PI * 1.9); ctx.moveTo(14, hy - 2); ctx.arc(10, hy - 2, 4, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); }
+  else { ctx.beginPath(); ctx.arc(-10, hy - 3, 3.5, 0, 7); ctx.arc(10, hy - 3, 3.5, 0, 7); ctx.fill(); }
+  // nose, cheeks, big curly moustache, smile
+  ellipse(ctx, 0, hy + 5, 5, 4, '#d4955a', INK, 2);
+  ctx.fillStyle = 'rgba(255,100,100,0.35)'; ctx.beginPath(); ctx.arc(-16, hy + 8, 5, 0, 7); ctx.arc(16, hy + 8, 5, 0, 7); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(0, hy + 10); ctx.bezierCurveTo(-8, hy + 6, -18, hy + 8, -20, hy + 14); ctx.bezierCurveTo(-22, hy + 8, -14, hy + 18, 0, hy + 13);
+  ctx.bezierCurveTo(14, hy + 18, 22, hy + 8, 20, hy + 14); ctx.bezierCurveTo(18, hy + 8, 8, hy + 6, 0, hy + 10);
+  blob(ctx, '#2d2d2d', INK, 2);
+  ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, hy + 16, 5, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
   // pan
   ctx.save(); ctx.translate(36 + stir, -2);
   rr(ctx, 0, -6, 42, 10, 5); blob(ctx, '#495057', INK, 2.5); rr(ctx, 40, -3, 22, 5, 2); blob(ctx, '#212529', INK, 2);
@@ -388,7 +465,7 @@ export function drawChef(ctx, x, y, t, cooking) {
   ctx.restore();
 }
 
-export function drawTicketWheel(ctx, x, y, count, t, pulse) {
+export function drawTicketWheel(ctx, x, y, count, t, pulse, tickets = []) {
   ctx.save(); ctx.translate(x, y);
   rr(ctx, -6, -10, 12, 40, 4); blob(ctx, '#868e96', INK, 2.5);
   ctx.rotate(t * 0.6);
@@ -396,7 +473,16 @@ export function drawTicketWheel(ctx, x, y, count, t, pulse) {
   for (let i = 0; i < 6; i++) { ctx.save(); ctx.rotate(i * Math.PI / 3); rr(ctx, -6, -44, 12, 18, 2); blob(ctx, '#fff9db', INK, 2); ctx.restore(); }
   circle(ctx, 0, -14, 6, '#adb5bd', INK, 2);
   ctx.restore();
-  if (count) { circle(ctx, x + 26, y - 40, 13, '#ff6b6b', INK, 2.5); ctx.fillStyle = '#fff'; ctx.font = '700 16px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(count), x + 26, y - 39); ctx.textBaseline = 'alphabetic'; }
+  // order tickets waiting to go to the kitchen, each with its table number
+  tickets.slice(0, 4).forEach((tk, i) => {
+    const tx = x - 30 + i * 30, ty = y - 76 + Math.sin(t * 6 + i) * 2;
+    ctx.save(); ctx.translate(tx, ty); ctx.rotate((i % 2 ? 0.08 : -0.08));
+    rr(ctx, -13, -17, 26, 34, 3); blob(ctx, '#fff9db', INK, 2.5);
+    ctx.fillStyle = '#ced4da'; ctx.fillRect(-8, 8, 16, 2); ctx.fillRect(-8, 12, 10, 2);
+    ctx.restore();
+    numberBadge(ctx, tx, ty - 4, tk.no, 0.8, tk.color);
+  });
+  if (count > 4) { ctx.fillStyle = INK; ctx.font = '700 16px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(`+${count - 4}`, x + 92, y - 72); }
 }
 
 export function drawBin(ctx, x, y) {
@@ -441,7 +527,7 @@ function heart(ctx, x, y, r, fill, lw) {
   ctx.closePath(); blob(ctx, fill, INK, lw * 1.6);
 }
 
-export function drawBubble(ctx, x, y, icon, t, urgent) {
+export function drawBubble(ctx, x, y, icon, t, urgent, info = null) {
   const s = 1 + (urgent ? Math.sin(t * 10) * 0.08 : 0);
   ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
   ctx.beginPath(); ctx.ellipse(0, 0, 24, 20, 0, 0, Math.PI * 2); ctx.moveTo(-6, 18); ctx.lineTo(0, 28); ctx.lineTo(6, 18);
@@ -449,7 +535,10 @@ export function drawBubble(ctx, x, y, icon, t, urgent) {
   switch (icon) {
     case 'menu': rr(ctx, -9, -11, 18, 22, 3); blob(ctx, '#ffd8a8', INK, 2); ctx.fillStyle = INK; ctx.fillRect(-5, -5, 10, 2); ctx.fillRect(-5, 0, 10, 2); ctx.fillRect(-5, 5, 7, 2); break;
     case 'order': ctx.fillStyle = '#f03e3e'; ctx.font = '700 30px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('!', 0, 2); ctx.textBaseline = 'alphabetic'; break;
-    case 'food': ellipse(ctx, 0, 4, 14, 6, '#fff', INK, 2); ctx.beginPath(); ctx.arc(0, 2, 10, Math.PI, 0); blob(ctx, '#ced4da', INK, 2); circle(ctx, 0, -9, 2.5, '#ced4da', INK, 1.5); break;
+    case 'food':
+      if (info && info.dish) { ctx.restore(); ctx.save(); ctx.translate(x, y); ctx.scale(s, s); drawFood(ctx, 0, 2, info.dish, 0.62); }
+      else { ellipse(ctx, 0, 4, 14, 6, '#fff', INK, 2); ctx.beginPath(); ctx.arc(0, 2, 10, Math.PI, 0); blob(ctx, '#ced4da', INK, 2); circle(ctx, 0, -9, 2.5, '#ced4da', INK, 1.5); }
+      break;
     case 'eat': ctx.fillStyle = INK; ctx.font = '700 18px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('yum', 0, 1); ctx.textBaseline = 'alphabetic'; break;
     case 'check': ctx.fillStyle = '#2b8a3e'; ctx.font = '700 26px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('£', 0, 2); ctx.textBaseline = 'alphabetic'; break;
   }

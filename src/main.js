@@ -26,7 +26,7 @@ store.init();
 
 const UPGRADES = [
   { id: 'shoes', icon: '🛼', name: 'Turbo Skates', desc: 'Poppy zooms around faster.', cost: [150, 450, 1000] },
-  { id: 'oven', icon: '🍳', name: 'Super Stove', desc: 'Chef Bun cooks faster and more at once.', cost: [250, 650, 1300] },
+  { id: 'oven', icon: '🍳', name: 'Super Stove', desc: 'Chef Leo cooks faster and more at once.', cost: [250, 650, 1300] },
   { id: 'cushions', icon: '🛋️', name: 'Comfy Cushions', desc: 'Seated guests stay patient for longer.', cost: [200, 550, 1100] },
   { id: 'decor', icon: '🎶', name: 'Waiting Lounge', desc: 'Guests in line lose patience slower.', cost: [150, 450, 1000] },
   { id: 'coffee', icon: '☕', name: 'Coffee Cart', desc: 'Tap it to give everyone waiting a free coffee (cheers them up).', cost: [300, 700, 1400] },

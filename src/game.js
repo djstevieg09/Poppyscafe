@@ -281,7 +281,7 @@ export class Game {
       if (!food) return false;
       const h = this.freeHand();
       if (h < 0) { this.float(p.x, p.y - 150, 'Hands full!', '#ffe3e3', 24); return false; }
-      p.hands[h] = { kind: 'food', g: food.g, dish: food.dish, tableNo: food.g.table ? food.g.table.no : 0 };
+      p.hands[h] = { kind: 'food', g: food.g, dish: food.dish, tableNo: food.g.table ? food.g.table.no : 0, tableColor: food.g.table ? food.g.table.colorObj.fill : null };
       this.slots[a.ref] = null;
       sfx.pickup();
       return true;
@@ -471,8 +471,8 @@ export class Game {
       { text: 'A customer has arrived! Drag them to a table. (You can also tap them, then tap a table.)', drag: true, done: () => g() && g().table },
       { text: 'Nice! Tip: seating customers on chairs that match their shirt colour earns bonus points. Now they are reading the menu…', done: () => st('order', 'waitfood', 'eating', 'check') },
       { text: 'They are ready to order! Tap their table to take the order.', target: () => tableTarget(), done: () => this.notepad.length || st('eating', 'check') || this.kitchen.length },
-      { text: 'Tap the ticket wheel to send the order to Chef Bun.', target: () => ({ x: TICKET.x, y: TICKET.y - 20 }), done: () => this.kitchen.length || this.slots.some(Boolean) },
-      { text: 'Chef Bun is cooking. Food will appear on the counter when it is ready…', done: () => this.slots.some(Boolean) || this.poppy.hands.some(h => h && h.kind === 'food') },
+      { text: 'Tap the ticket wheel to send the order to Chef Leo.', target: () => ({ x: TICKET.x, y: TICKET.y - 20 }), done: () => this.kitchen.length || this.slots.some(Boolean) },
+      { text: 'Chef Leo is cooking. Food will appear on the counter when it is ready…', done: () => this.slots.some(Boolean) || this.poppy.hands.some(h => h && h.kind === 'food') },
       { text: 'Food is up! Tap the plate on the counter to pick it up. The badge shows which table it is for.', target: () => { const i = this.slots.findIndex(Boolean); return i >= 0 ? { x: SLOT_X[i], y: SLOT_Y } : null; }, done: () => this.poppy.hands.some(h => h && h.kind === 'food') || st('eating', 'check') },
       { text: 'Now tap the table to serve the food.', target: () => tableTarget(), done: () => st('eating', 'check') },
       { text: 'Yum! Wait while they eat…', done: () => st('check') },
@@ -571,7 +571,7 @@ export class Game {
     const p = this.poppy;
     if (this.slots.some(Boolean) && this.freeHand() >= 0) return 'Food is up! Tap the plate on the counter to pick it up.';
     if (p.hands.some(h => h && h.kind === 'food')) return 'Tap the matching table number to serve the food.';
-    if (this.notepad.length) return 'Tap the ticket wheel so Chef Bun can start cooking.';
+    if (this.notepad.length) return 'Tap the ticket wheel so Chef Leo can start cooking.';
     if (this.groups.some(g => g.state === 'check')) return 'Customers want the bill (£). Tap their table to collect.';
     if (this.groups.some(g => g.state === 'order')) return 'Tap a table showing "!" to take their order.';
     if (p.hands.some(h => h && h.kind === 'dishes')) return 'Drop dirty dishes in the blue tub.';
@@ -592,10 +592,10 @@ export class Game {
     // kitchen
     A.drawChef(ctx, CHEF.x, CHEF.y, t, this.chefCooking);
     A.rr(ctx, 30, 228, 660, 22, 8); ctx.fillStyle = this.cafe.counterTop; ctx.fill(); ctx.lineWidth = 3.5; ctx.strokeStyle = A.INK; ctx.stroke();
-    A.drawTicketWheel(ctx, TICKET.x, TICKET.y, this.notepad.length, t, this.notepad.length > 0);
+    A.drawTicketWheel(ctx, TICKET.x, TICKET.y, this.notepad.length, t, this.notepad.length > 0, this.notepad.filter(g => g.table).map(g => ({ no: g.table.no, color: g.table.colorObj.fill })));
     for (let i = 0; i < SLOT_X.length; i++) {
       const s = this.slots[i];
-      if (s) A.drawFood(ctx, SLOT_X[i], SLOT_Y - (s.pop ? s.pop * 20 : 0) + Math.sin(t * 4 + i) * 1.5, s.dish, 1, s.g.table ? s.g.table.no : 0, t + i * 0.3);
+      if (s) A.drawFood(ctx, SLOT_X[i], SLOT_Y - (s.pop ? s.pop * 20 : 0) + Math.sin(t * 4 + i) * 1.5, s.dish, 1, s.g.table ? s.g.table.no : 0, t + i * 0.3, s.g.table ? s.g.table.colorObj.fill : null);
     }
     // cooking progress pips
     let shown = 0;
@@ -604,6 +604,7 @@ export class Game {
       const x = 560 - shown * 34, y = 140;
       ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.arc(x, y, 14, 0, 7); ctx.fill();
       ctx.strokeStyle = '#f76707'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(x, y, 11, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, k.t / k.dur)); ctx.stroke();
+      if (k.g.table) A.numberBadge(ctx, x, y, k.g.table.no, 0.62, k.g.table.colorObj.fill);
       shown++;
     }
     A.drawBin(ctx, BIN.x, BIN.y);
@@ -642,7 +643,8 @@ export class Game {
       if (!g || g.state === 'leaving') continue;
       const top = tb.y - (tb.seats === 4 ? 130 : 118);
       const icon = { menu: 'menu', order: 'order', waitfood: 'food', check: 'check' }[g.state];
-      if (icon) A.drawBubble(ctx, tb.x, top, icon, t, g.hearts < 1.8);
+      const carry = g.state === 'waitfood' && this.poppy.hands.some(h => h && h.kind === 'food' && h.g === g);
+      if (icon) A.drawBubble(ctx, tb.x, top - (carry ? Math.abs(Math.sin(t * 7)) * 12 : 0), icon, t, g.hearts < 1.8 || carry, { dish: A.dishFor(g.id + this.level.cafeIndex) });
       if (g.state === 'eating') this.drawProgress(ctx, tb.x, top + 10, 1 - g.timer / ((4.2 + 2.2) * CUSTOMER_TYPES[g.type].eat));
       if (g.state !== 'eating' && g.state !== 'menu') A.drawHearts(ctx, tb.x, tb.y + (tb.seats === 4 ? 78 : 60), g.hearts);
     }
@@ -702,6 +704,17 @@ export class Game {
   }
 
   drawTable(ctx, tb, t, seatable) {
+    // If Poppy is carrying this table's food, make the table glow so it's easy to find
+    const g0 = tb.group;
+    const carrying = g0 && g0.state === 'waitfood' && this.poppy.hands.some(h => h && h.kind === 'food' && h.g === g0);
+    if (carrying) {
+      const r = (tb.seats === 4 ? 92 : 84) + Math.sin(t * 7) * 6;
+      ctx.save();
+      ctx.globalAlpha = 0.35; ctx.fillStyle = tb.colorObj.fill;
+      ctx.beginPath(); ctx.ellipse(tb.x, tb.y + 4, r, r * 0.62, 0, 0, 7); ctx.fill();
+      ctx.globalAlpha = 1; ctx.strokeStyle = tb.colorObj.dark; ctx.lineWidth = 5; ctx.setLineDash([14, 10]); ctx.lineDashOffset = -t * 50;
+      ctx.stroke(); ctx.restore();
+    }
     let hl = null;
     if (seatable) hl = this.canSeat(seatable, tb) ? (seatable.color === tb.color ? '#ffd43b' : '#40c057') : null;
     const s = 1 + tb.pulse * 0.08;
