@@ -1,8 +1,8 @@
 // Sound for Lolly's Café Rush. Everything is synthesized in the browser with
 // the Web Audio API: no audio files, and all music here is original.
 //
-//   Music: "Morning Bake" (menus, relaxed swing in F) and
-//          "Lunch Rush"   (in-level, upbeat in C)
+//   Music: "Jukebox Moon"        (menus, doo-wop ballad in Bb) and
+//          "Blue Plate Special"  (in-level, 1950s rock 'n' roll shuffle in F)
 //   Sound effects: short synthesized blips, chimes and coin sounds.
 
 let ctx = null;
@@ -25,14 +25,16 @@ export function unlockAudio() {
   master.connect(comp).connect(ctx.destination);
   musicBus = ctx.createGain(); musicBus.gain.value = musicOn ? MUSIC_VOL : 0; musicBus.connect(master);
   sfxBus = ctx.createGain(); sfxBus.gain.value = 1; sfxBus.connect(master);
-  noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.5, ctx.sampleRate);
+  noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
   const d = noiseBuf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  buildFx();
   resumeSong();
 }
 
 // ---------------------------------------------------------------- voices
 let noiseBuf = null;
+let fx = null; // send inputs: { echo, room }
 
 function osc(bus, type, freq, t0, dur, vol, { attack = 0.01, slide = 0, decay = null } = {}) {
   const o = ctx.createOscillator(), g = ctx.createGain();
@@ -55,66 +57,223 @@ function noise(bus, t0, dur, vol, hp = 6000) {
   s.start(t0); s.stop(t0 + dur + 0.02);
 }
 
-// mallet-like lead (sine + soft octave) = cartoony xylophone/marimba feel
-function mallet(f, t0, dur, vol) {
-  osc(musicBus, 'sine', f, t0, Math.max(0.18, dur), vol, { attack: 0.005, decay: 0.35 });
-  osc(musicBus, 'triangle', f * 2, t0, 0.12, vol * 0.25, { attack: 0.003 });
+// Slap-back echo (that 1950s tape-echo sound), a small room reverb, and one
+// shared channel (filter + sends) per instrument so each note stays cheap.
+let CH = null;
+function buildFx() {
+  const echo = ctx.createGain();
+  const d = ctx.createDelay(1); d.delayTime.value = 0.125;
+  const fb = ctx.createGain(); fb.gain.value = 0.2;
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2200;
+  const wet = ctx.createGain(); wet.gain.value = 0.35;
+  echo.connect(d); d.connect(lp); lp.connect(fb); fb.connect(d); lp.connect(wet); wet.connect(musicBus);
+  const room = ctx.createGain();
+  const conv = ctx.createConvolver();
+  const len = Math.floor(ctx.sampleRate * 1.2);
+  const ir = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let c = 0; c < 2; c++) {
+    const ch = ir.getChannelData(c);
+    for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+  }
+  conv.buffer = ir;
+  const rw = ctx.createGain(); rw.gain.value = 0.3;
+  room.connect(conv); conv.connect(rw); rw.connect(musicBus);
+  fx = { echo, room };
+  const chan = (filters, echoAmt = 0, roomAmt = 0) => {
+    const input = ctx.createGain();
+    let node = input;
+    for (const [type, freq, q = 0.7, gain] of filters) {
+      const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+      if (gain !== undefined) f.gain.value = gain;
+      node.connect(f); node = f;
+    }
+    node.connect(musicBus);
+    if (echoAmt) { const g = ctx.createGain(); g.gain.value = echoAmt; node.connect(g); g.connect(echo); }
+    if (roomAmt) { const g = ctx.createGain(); g.gain.value = roomAmt; node.connect(g); g.connect(room); }
+    return input;
+  };
+  // Doo-wop "oooh": vowel formants applied to the whole choir at once.
+  const choir = ctx.createGain();
+  const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.frequency.value = 340; f1.Q.value = 3;
+  const f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.frequency.value = 820; f2.Q.value = 5;
+  const f2g = ctx.createGain(); f2g.gain.value = 0.5;
+  const choirOut = chan([], 0, 0.6);
+  choir.connect(f1); f1.connect(choirOut); choir.connect(f2); f2.connect(f2g); f2g.connect(choirOut);
+  CH = {
+    sax: chan([], 0.55, 0.45),
+    bass: chan([['lowpass', 520, 1.2]], 0, 0.12),
+    piano: chan([['lowpass', 2200, 0.5]], 0, 0.35),
+    guitar: chan([['lowpass', 1500, 0.8]], 0.5, 0.15),
+    choir,
+    kick: chan([], 0, 0.1),
+    brush: chan([['bandpass', 2800, 0.7]], 0, 0.3),
+    snare: chan([['highpass', 1400, 0.7]], 0, 0.35),
+    ride: chan([['highpass', 6000, 0.7], ['peaking', 4200, 4, 6]], 0, 0.1),
+    hat: chan([['highpass', 7500, 0.7]]),
+  };
+  // one shared vibrato LFO for the sax and the choir
+  const lfo = ctx.createOscillator(); lfo.frequency.value = 5; lfo.start();
+  CH.vib = ctx.createGain(); CH.vib.gain.value = 12; lfo.connect(CH.vib);
 }
-function pluckBass(f, t0, dur, vol) { osc(musicBus, 'triangle', f, t0, Math.min(dur, 0.4), vol, { attack: 0.006, decay: 0.5 }); }
-function stab(freqs, t0, vol) { for (const f of freqs) osc(musicBus, 'square', f, t0, 0.09, vol, { attack: 0.004 }); }
-function kick(t0, vol) { osc(musicBus, 'sine', 140, t0, 0.18, vol, { attack: 0.002, slide: -95 }); }
-function snare(t0, vol) { noise(musicBus, t0, 0.12, vol, 1800); osc(musicBus, 'triangle', 220, t0, 0.06, vol * 0.4); }
-function hat(t0, vol) { noise(musicBus, t0, 0.035, vol, 7500); }
+function hit(dest, t0, dur, vol, attack = 0.002) {
+  const s = ctx.createBufferSource(), g = ctx.createGain();
+  s.buffer = noiseBuf;
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  s.connect(g); g.connect(dest);
+  s.start(t0, Math.random() * 0.5); s.stop(t0 + dur + 0.02);
+}
+function env(t0, vol, attack, end, sustain = null, sustainAt = 0) {
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + attack);
+  if (sustain !== null) g.gain.exponentialRampToValueAtTime(vol * sustain, Math.max(t0 + attack + 0.01, sustainAt));
+  g.gain.exponentialRampToValueAtTime(0.0001, end);
+  return g;
+}
+function tone2(type, f, t0, end, dest, detune = 0, vib = false) {
+  const o = ctx.createOscillator(); o.type = type; o.frequency.value = f; o.detune.value = detune;
+  if (vib) CH.vib.connect(o.detune);
+  o.connect(dest); o.start(t0); o.stop(end + 0.05);
+  return o;
+}
+
+// Breathy tenor sax: two detuned saws through a moving low-pass, a little
+// scoop into each note, vibrato and a puff of breath.
+function sax(f, t0, dur, vol) {
+  const end = t0 + dur + 0.08;
+  const g = ctx.createGain(), lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass'; lp.Q.value = 2.5;
+  lp.frequency.setValueAtTime(f * 1.5, t0);
+  lp.frequency.linearRampToValueAtTime(Math.min(9000, f * 5), t0 + 0.06);
+  lp.frequency.setTargetAtTime(f * 3, t0 + 0.07, 0.18);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(vol, t0 + 0.035);
+  g.gain.setTargetAtTime(vol * 0.72, t0 + 0.05, 0.2);
+  g.gain.setTargetAtTime(0.0001, Math.max(t0 + 0.06, t0 + dur - 0.02), 0.035);
+  for (const det of [-7, 6]) {
+    const o = tone2('sawtooth', f, t0, end, lp, det, dur > 0.3);
+    o.frequency.setValueAtTime(f * 0.965, t0);
+    o.frequency.exponentialRampToValueAtTime(f, t0 + 0.055);
+  }
+  const ng = env(t0, vol * 0.5, 0.004, t0 + 0.1);
+  const n = ctx.createBufferSource(); n.buffer = noiseBuf; n.connect(ng); ng.connect(lp);
+  n.start(t0, Math.random() * 0.5); n.stop(t0 + 0.12);
+  lp.connect(g); g.connect(CH.sax);
+}
+
+// Upright double bass: warm and round.
+function upright(f, t0, dur, vol) {
+  const end = t0 + Math.max(0.12, dur);
+  const g = env(t0, vol, 0.01, end, 0.45, t0 + Math.min(0.3, dur * 0.7));
+  tone2('triangle', f, t0, end, g);
+  g.connect(CH.bass);
+}
+
+// Felt-y upright piano chord.
+function piano(freqs, t0, vol, len = 0.5) {
+  const end = t0 + len;
+  const g = env(t0, vol, 0.005, end, 0.3, t0 + Math.min(0.15, len * 0.5));
+  for (const f of freqs) tone2('triangle', f, t0, end, g, -3);
+  g.connect(CH.piano);
+}
+
+// Clean, slightly crunchy electric guitar (slap-back echo on its channel).
+function guitar(freqs, t0, dur, vol) {
+  const g = env(t0, vol, 0.004, t0 + dur);
+  for (const f of freqs) tone2('sawtooth', f, t0, t0 + dur, g);
+  g.connect(CH.guitar);
+}
+
+// Doo-wop backing "oooh" voices.
+function ooh(freqs, t0, dur, vol) {
+  const g = ctx.createGain();
+  const att = Math.min(0.3, dur * 0.3);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(vol, t0 + att);
+  g.gain.setValueAtTime(vol, t0 + Math.max(att, dur - 0.3));
+  g.gain.linearRampToValueAtTime(0.0001, t0 + dur + 0.1);
+  for (const f of freqs) for (const det of [-9, 8]) tone2('sawtooth', f, t0, t0 + dur + 0.15, g, det, true);
+  g.connect(CH.choir);
+}
+
+function kick(t0, vol) {
+  const g = env(t0, vol, 0.004, t0 + 0.3);
+  const o = tone2('sine', 115, t0, t0 + 0.3, g);
+  o.frequency.setValueAtTime(115, t0); o.frequency.exponentialRampToValueAtTime(48, t0 + 0.2);
+  g.connect(CH.kick);
+}
+const brush = (t0, vol) => hit(CH.brush, t0, 0.24, vol, 0.012);
+function snare(t0, vol) {
+  hit(CH.snare, t0, 0.17, vol);
+  const g = env(t0, vol * 0.5, 0.002, t0 + 0.08);
+  tone2('triangle', 185, t0, t0 + 0.08, g); g.connect(CH.kick);
+}
+const ride = (t0, vol) => hit(CH.ride, t0, 0.32, vol);
+const pedalHat = (t0, vol) => hit(CH.hat, t0, 0.045, vol);
 
 // ---------------------------------------------------------------- notes
 const SEMI = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
-function hz(name) {
+const mhz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+function midi(name) {
   const m = /^([A-G][#b]?)(\d)$/.exec(name);
-  const n = SEMI[m[1]] + (+m[2] + 1) * 12;
-  return 440 * Math.pow(2, (n - 69) / 12);
+  return SEMI[m[1]] + (+m[2] + 1) * 12;
 }
-// "C5 . F5 - A5" -> [{f, len}] one token per eighth note; "-" holds, "." rests
+const hz = (name) => mhz(midi(name));
+// Melody text: each token is a note or "." (rest), optionally ":n" steps long.
+// "-" holds the previous note one more step. "|" separates bars.
 function parseLine(str) {
-  const out = []; const toks = str.replace(/\|/g, ' ').trim().split(/\s+/);
-  toks.forEach((t, i) => {
-    if (t === '-') { for (let j = out.length - 1; j >= 0; j--) if (out[j]) { out[j].len++; break; } out.push(null); }
-    else if (t === '.') out.push(null);
-    else out.push({ f: hz(t), len: 1 });
-  });
+  const out = [];
+  for (const tok of str.replace(/\|/g, ' ').trim().split(/\s+/)) {
+    const [name, n = '1'] = tok.split(':');
+    const len = +n;
+    if (name === '-') { for (let j = out.length - 1; j >= 0; j--) if (out[j]) { out[j].len += len; break; } }
+    else if (name !== '.') { out.push({ f: hz(name), len }); for (let i = 1; i < len; i++) out.push(null); continue; }
+    for (let i = 0; i < len; i++) out.push(null);
+  }
   return out;
 }
-const CH = {
-  F: ['F4', 'A4', 'C5'], Dm: ['D4', 'F4', 'A4'], Gm7: ['F4', 'Bb4', 'D5'], C7: ['E4', 'Bb4', 'C5'], A7: ['E4', 'G4', 'C#5'],
-  G7: ['F4', 'B4', 'D5'], C: ['E4', 'G4', 'C5'], Am: ['E4', 'A4', 'C5'], G: ['D4', 'G4', 'B4'], E7: ['D4', 'G#4', 'B4'], Em: ['E4', 'G4', 'B4'],
-};
+const QUAL = { '': [0, 4, 7], m: [0, 3, 7], '7': [0, 4, 7, 10], m7: [0, 3, 7, 10], maj7: [0, 4, 7, 11], '6': [0, 4, 7, 9], dim7: [0, 3, 6, 9] };
+function chordInfo(name) {
+  const m = /^([A-G][#b]?)(.*)$/.exec(name);
+  const r = SEMI[m[1]], iv = QUAL[m[2]] || QUAL[''];
+  const voicing = iv.map(i => { let n = 48 + r + i; while (n < 55) n += 12; while (n > 67) n -= 12; return n; }).sort((a, b) => a - b);
+  const root = r >= 2 ? 36 + r : 48 + r; // E2..C#3 range for the bass
+  return { root, iv, minor: iv[1] === 3, voicing };
+}
 
 // ---------------------------------------------------------------- songs (original)
+// Both tunes were written for this game in a 1950s style.
 const SONGS = {
-  menu: { // "Morning Bake"
-    bpm: 104, swing: 0.2, lead: 0.13,
+  // "Jukebox Moon": slow doo-wop ballad in Bb, 12/8 piano triplets, "ooh" choir, sax lead.
+  menu: {
+    style: 'doowop', bpm: 70, sub: 3, swing: 0, lead: 0.14,
+    chords: ['Bb', 'Gm', 'Eb', 'F', 'Bb', 'Gm', 'Eb', 'F7', 'Bb', 'Gm', 'Cm7', 'F7', 'Bb', 'G7', 'Cm7', 'F7'],
     melody: parseLine(`
-      C5 . F5 A5 C6 - A5 . | D6 - C6 A5 F5 - . . | Bb5 - A5 G5 F5 G5 A5 Bb5 | C6 - - - E5 . G5 . |
-      C5 . F5 A5 C6 - D6 C6 | C#6 - A5 . E5 G5 A5 C#6 | D6 - F6 - D6 B5 G5 F5 | E5 - G5 - C6 - . .`),
-    // one chord per half bar
-    chords: ['F', 'F', 'Dm', 'Dm', 'Gm7', 'Gm7', 'C7', 'C7', 'F', 'F', 'A7', 'A7', 'Dm', 'G7', 'C7', 'C7'],
-    bass: ['F2', 'C3', 'D2', 'A2', 'G2', 'D3', 'C2', 'G2', 'F2', 'C3', 'A2', 'E2', 'D2', 'G2', 'C2', 'C3'],
-    drums: { kick: [0], snare: [4], hat: [2, 6], vol: 0.5 },
+      .:3 F4:3 Bb4:3 D5:3 | D5:6 C5:2 Bb4:1 G4:3 | Bb4:3 G4:3 Eb5:6 | D5:3 C5:3 A4:3 F4:3 |
+      .:3 F4:3 Bb4:3 D5:3 | G5:6 F5:2 D5:1 Bb4:3 | C5:3 Eb5:3 G5:3 F5:3 | Eb5:3 D5:3 C5:6 |
+      D5:9 F5:3 | G5:3 F5:3 D5:3 Bb4:3 | Eb5:6 D5:3 C5:3 | A4:6 .:3 C5:3 |
+      D5:3 Eb5:3 F5:6 | G5:3 F5:3 D5:3 B4:3 | Eb5:6 C5:3 A4:3 | C5:3 A4:3 F4:3 .:3`),
   },
-  level: { // "Lunch Rush" - 1950s rock 'n' roll shuffle with a boogie-woogie bass
-    bpm: 150, swing: 0.24, lead: 0.12, boogie: true,
+  // "Blue Plate Special": 12-bar rock 'n' roll shuffle in F, boogie bass, sax riffs.
+  level: {
+    style: 'rocknroll', bpm: 164, sub: 2, swing: 0.3, lead: 0.13,
+    chords: ['F7', 'F7', 'F7', 'F7', 'Bb7', 'Bb7', 'F7', 'F7', 'C7', 'Bb7', 'F7', 'C7',
+             'F7', 'Bb7', 'F7', 'F7', 'Bb7', 'Bb7', 'F7', 'D7', 'Gm7', 'C7', 'F7', 'C7'],
     melody: parseLine(`
-      E5 G5 C6 . G5 . E5 G5 | A5 - . A5 C6 B5 A5 . | F5 A5 C6 . A5 . F5 A5 | G5 - B5 - D6 - . . |
-      E5 G5 C6 . G5 . E5 G5 | G#5 - B5 . D6 . B5 G#5 | A5 C6 E6 . F5 A5 C6 . | B5 - D6 - F6 - G6 . |
-      A5 . A5 C6 F6 . E6 D6 | D6 . B5 G5 D6 - . . | B5 . B5 E6 G6 . E6 D6 | C6 - A5 - E5 - . . |
-      F5 A5 D6 . A5 . F5 A5 | G5 B5 D6 . F6 . E6 D6 | E6 - C6 - G5 - E5 G5 | F5 . D5 F5 G5 - . .`),
-    chords: ['C', 'C', 'Am', 'Am', 'F', 'F', 'G', 'G', 'C', 'C', 'E7', 'E7', 'Am', 'F', 'G7', 'G7',
-             'F', 'F', 'G', 'G', 'Em', 'Em', 'Am', 'Am', 'Dm', 'Dm', 'G', 'G', 'C', 'C', 'G7', 'G7'],
-    bass: ['C2', 'G2', 'A2', 'E2', 'F2', 'C3', 'G2', 'D2', 'C2', 'G2', 'E2', 'B2', 'A2', 'F2', 'G2', 'G2',
-           'F2', 'C3', 'G2', 'D3', 'E2', 'B2', 'A2', 'E2', 'D2', 'A2', 'G2', 'D2', 'C2', 'G2', 'G2', 'B2'],
-    drums: { kick: [0, 4], snare: [2, 6], hat: [0, 1, 2, 3, 4, 5, 6, 7], vol: 0.6 },
+      .:2 C5 Eb5 F5:2 Eb5 C5 | Eb5 C5 A4:4 .:2 | .:2 C5 Eb5 F5 G5 A5:2 | G5 F5 Eb5 C5 A4:2 .:2 |
+      .:2 D5 F5 Ab5:2 F5 D5 | F5 D5 Bb4:4 .:2 | .:2 C5 Eb5 F5:2 Eb5 C5 | A4:4 .:4 |
+      G5:2 E5 C5 Bb4:2 C5:2 | Bb4:2 D5 F5 Ab5:2 F5:2 | A5 G5 F5 Eb5 C5 A4 F4:2 | .:2 E4 G4 Bb4 C5 E5:2 |
+      F5:6 Eb5 C5 | D5:3 F5 Ab5:2 F5:2 | C5:2 F5:2 A5:4 | G5 F5 Eb5 C5 Eb5:4 |
+      D5:6 Bb4:2 | Ab4 Bb4 D5 F5 Ab5:4 | A5:2 F5 C5 A4:4 | F#4 A4 C5 D5 F#5:4 |
+      G5:2 F5 D5 Bb4:2 G4:2 | E4 G4 Bb4 C5 E5:2 G5:2 | F5:2 C5 A4 F4:4 | .:4 C5 Bb4 G4 E4`),
   },
 };
-CH.Dm = ['D4', 'F4', 'A4'];
+for (const [k, s] of Object.entries(SONGS)) {
+  const want = s.chords.length * s.sub * 4;
+  if (s.melody.length !== want) console.warn(`song ${k}: melody ${s.melody.length} steps, expected ${want}`);
+}
 
 // ---------------------------------------------------------------- sequencer
 let song = null, songName = null, step = 0, nextTime = 0, timer = null, duck = 1;
@@ -141,36 +300,47 @@ function resumeSong() { if (ctx && songName && !timer && SONGS[songName]) { cons
 function schedule() {
   if (!song || !ctx) return;
   if (!musicOn) { nextTime = ctx.currentTime + 0.05; return; }
-  const eighth = 60 / song.bpm / 2;
+  const sub = song.sub, spb = sub * 4;
+  const stepDur = 60 / song.bpm / sub;
   while (nextTime < ctx.currentTime + 0.15) {
-    const pos = step % 8; // eighth within the bar
-    const t = nextTime + (pos % 2 === 1 ? eighth * song.swing : 0);
     const mi = step % song.melody.length;
-    const half = Math.floor(mi / 4) % song.chords.length;
-    // melody
+    const bar = Math.floor(mi / spb), pos = mi % spb;
+    const beat = Math.floor(pos / sub), inBeat = pos % sub;
+    const ch = chordInfo(song.chords[bar % song.chords.length]);
+    const nx = chordInfo(song.chords[(bar + 1) % song.chords.length]);
+    const t = nextTime + (sub === 2 && inBeat === 1 ? stepDur * song.swing : 0);
+
     const n = song.melody[mi];
-    if (n) mallet(n.f, t, n.len * eighth * 0.95, song.lead);
-    if (song.boogie) {
-      // walking boogie bass: 1-3-5-6-b7-6-5-3 over the chord root
-      const bar = Math.floor(mi / 8) * 2 + (pos >= 4 ? 1 : 0);
-      const chord = song.chords[bar % song.chords.length];
-      const minor = /^[A-G][#b]?m(?!aj)/.test(chord);
-      const steps = [0, minor ? 3 : 4, 7, 9, 10, 9, 7, minor ? 3 : 4];
-      const root = hz(song.bass[Math.floor(mi / 8) * 2 % song.bass.length].replace(/\d/, '2'));
-      pluckBass(root * Math.pow(2, steps[pos] / 12), t, eighth * 0.9, 0.26);
+    if (n) sax(n.f, t, n.len * stepDur * 0.92, song.lead);
+
+    if (song.style === 'doowop') {
+      // piano triplets on every step, accent on the beat
+      piano(ch.voicing.map(mhz), t, inBeat === 0 ? 0.08 : 0.045, 0.32);
+      // choir holds the chord for the bar
+      if (pos === 0) ooh(ch.voicing.map(m => mhz(m + 12)).slice(0, 3), t, stepDur * spb * 0.97, 0.065);
+      // walking bass: root, third, fifth, then lead into the next chord
+      if (inBeat === 0) {
+        const approach = nx.root === ch.root ? ch.root + 9 : nx.root - 1;
+        const note = [ch.root, ch.root + ch.iv[1], ch.root + 7, approach][beat];
+        upright(mhz(note), t, stepDur * 2.8, 0.26);
+      }
+      if (pos === 0 || pos === 6) kick(t, 0.22);
+      if (pos === 3 || pos === 9) brush(t, 0.17);
+      ride(t, inBeat === 0 ? 0.045 : 0.022);
     } else {
-      // bass on each half bar, plus a pickup note
-      if (pos % 4 === 0) pluckBass(hz(song.bass[half]), t, eighth * 3, 0.32);
-      if (pos === 7 && song.bpm > 120) pluckBass(hz(song.bass[(half + 1) % song.bass.length]) * 2, t, eighth, 0.16);
+      // boogie-woogie bass walking up and down the chord
+      const offs = [0, ch.minor ? 3 : 4, 7, 9, 10, 9, 7, ch.minor ? 3 : 4];
+      upright(mhz(ch.root + offs[pos]), t, stepDur * 0.95, 0.22);
+      // guitar shuffle: root with 5th / 6th
+      const g = ch.root + 12;
+      guitar([mhz(g), mhz(g + (pos % 4 < 2 ? 7 : 9))], t, 0.14, 0.07);
+      // piano off-beat comping on 2 and 4
+      if (pos === 2 || pos === 6) piano(ch.voicing.map(m => mhz(m + 12)), t, 0.065, 0.22);
+      if (pos === 0 || pos === 4) kick(t, 0.3);
+      if (pos === 2 || pos === 6) { snare(t, 0.16); pedalHat(t, 0.03); }
+      ride(t, inBeat === 0 ? 0.05 : 0.028);
     }
-    // offbeat chord stabs
-    if (pos % 4 === 2) stab(CH[song.chords[half]].map(hz), t, 0.028);
-    // drums
-    const dv = song.drums.vol;
-    if (song.drums.kick.includes(pos)) kick(t, 0.5 * dv);
-    if (song.drums.snare.includes(pos)) snare(t, 0.22 * dv);
-    if (song.drums.hat.includes(pos)) hat(t, (pos % 2 ? 0.05 : 0.08) * dv);
-    nextTime += eighth;
+    nextTime += stepDur;
     step++;
   }
 }
